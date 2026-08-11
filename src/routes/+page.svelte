@@ -22,6 +22,7 @@
 	let barraAperta = $state(true);
 	let barraMobileAperta = $state(false);
 	let inRinomina = $state(false);
+	let dialogElimina = $state<HTMLDialogElement | null>(null);
 
 	const presetSelezionato = $derived(presets.find((p) => p.id === idSelezionato) ?? null);
 	const modificato = $derived(
@@ -47,6 +48,17 @@
 	function salvaPreset() {
 		if (!presetSelezionato) return;
 		presetSelezionato.valori = clonaValori(valori);
+	}
+
+	function eliminaPreset() {
+		const i = presets.findIndex((p) => p.id === idSelezionato);
+		if (i === -1) return;
+		presets.splice(i, 1);
+		const successivo = presets[i] ?? presets[i - 1] ?? null;
+		idSelezionato = successivo?.id ?? null;
+		if (successivo) valori = clonaValori(successivo.valori);
+		inRinomina = false;
+		dialogElimina?.close();
 	}
 
 	function autofocus(node: HTMLInputElement) {
@@ -249,7 +261,57 @@
 					<path d="M17 21v-8H7v8M7 3v5h8" />
 				</svg>
 			</button>
+
+			<button
+				type="button"
+				class="rounded p-1.5 hover:bg-black/5 disabled:opacity-40"
+				aria-label="Elimina preset"
+				title="Elimina preset"
+				disabled={!presetSelezionato}
+				onclick={() => dialogElimina?.showModal()}
+			>
+				<svg
+					class="size-5"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2" />
+					<path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+					<path d="M10 11v6M14 11v6" />
+				</svg>
+			</button>
 		</div>
+
+		<dialog
+			bind:this={dialogElimina}
+			class="m-auto max-w-sm rounded border bg-white p-4 backdrop:bg-black/40"
+		>
+			<h3 class="text-lg font-semibold">Eliminare il preset?</h3>
+			<p class="mt-2 text-sm">
+				Il preset <strong>{presetSelezionato?.nome}</strong> verrà eliminato definitivamente.
+			</p>
+			<div class="mt-4 flex justify-end gap-2">
+				<button
+					type="button"
+					class="rounded border px-3 py-1.5 text-sm hover:bg-black/5"
+					onclick={() => dialogElimina?.close()}
+				>
+					Annulla
+				</button>
+				<button
+					type="button"
+					class="rounded border border-red-600 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+					onclick={eliminaPreset}
+				>
+					Elimina
+				</button>
+			</div>
+		</dialog>
 
 		<form>
 			<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
