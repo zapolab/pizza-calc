@@ -1,0 +1,34 @@
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.ref }}-${{ github.workflow }}
+
+jobs:
+  check:
+    name: Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Clone the repository
+        uses: actions/checkout@v6.0.2
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          cache: pnpm
+          node-version: 26
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run linter
+        run: pnpm lint
+      - name: Run types and syntax check
+        run: pnpm check
+      - name: Build
+        run: pnpm build
+
+name: Check
+
+"on":
+  pull_request:
+    branches:
+      - main
