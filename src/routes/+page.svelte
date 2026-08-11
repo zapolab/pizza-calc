@@ -1,17 +1,55 @@
 <script lang="ts">
-	type TipoRiporto = 'stanca' | 'normale' | 'vivace';
+	import { clonaValori, valoriPredefiniti, type Preset } from '$lib/presets';
 
+	// Segnaposto in attesa del backend sqlite.
+	let presets = $state<Preset[]>([
+		{ id: 1, nome: 'Napoletana', valori: clonaValori(valoriPredefiniti) },
+		{
+			id: 2,
+			nome: 'Teglia romana',
+			valori: { ...valoriPredefiniti, pesoPanetti: 700, idratazione: 80, inTeglia: true }
+		}
+	]);
+	let prossimoId = $state(3);
+
+	let idSelezionato = $state<number | null>(1);
+	let valori = $state(clonaValori(presets[0].valori));
+
+	// Non fanno parte del preset.
 	let numeroPanetti = $state(1);
-	let pesoPanetti = $state(200);
 	let temperatura = $state(20);
-	let idratazione = $state(65);
-	let salePerLitro = $state(50);
-	let oreLievitazione = $state(24);
-	let oreFrigo = $state(0);
-	let olioPerLitro = $state(0);
-	let percentualeRiporto = $state(0);
-	let tipoRiporto = $state<TipoRiporto>('normale');
-	let inTeglia = $state(false);
+
+	let barraAperta = $state(true);
+	let inRinomina = $state(false);
+
+	const presetSelezionato = $derived(presets.find((p) => p.id === idSelezionato) ?? null);
+	const modificato = $derived(
+		presetSelezionato !== null &&
+			JSON.stringify(presetSelezionato.valori) !== JSON.stringify(valori)
+	);
+
+	function selezionaPreset(preset: Preset) {
+		idSelezionato = preset.id;
+		valori = clonaValori(preset.valori);
+		inRinomina = false;
+	}
+
+	function nuovoPreset() {
+		const preset: Preset = { id: prossimoId++, nome: 'Nuovo preset', valori: clonaValori(valori) };
+		presets.push(preset);
+		idSelezionato = preset.id;
+		inRinomina = true;
+	}
+
+	function salvaPreset() {
+		if (!presetSelezionato) return;
+		presetSelezionato.valori = clonaValori(valori);
+	}
+
+	function autofocus(node: HTMLInputElement) {
+		node.focus();
+		node.select();
+	}
 
 	// Segnaposto: le formule non sono ancora implementate.
 	const risultati = {
@@ -24,123 +62,281 @@
 	};
 </script>
 
-<div class="mx-auto max-w-3xl p-4">
-	<form>
-		<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
-			<label class="block">
-				<span class="text-sm">Numero panetti</span>
-				<input type="number" min="1" step="1" bind:value={numeroPanetti} class="mt-1 w-full" />
-			</label>
-
-			<label class="block">
-				<span class="text-sm">Peso panetti (grammi)</span>
-				<input type="number" min="0" step="1" bind:value={pesoPanetti} class="mt-1 w-full" />
-			</label>
-
-			<label class="block">
-				<span class="text-sm">Temperatura ambiente (°C)</span>
-				<input type="number" step="1" bind:value={temperatura} class="mt-1 w-full" />
-			</label>
+<div class="flex min-h-screen">
+	<aside class="shrink-0 border-r {barraAperta ? 'w-56' : 'w-12'}">
+		<div class="flex items-center justify-between gap-2 p-2">
+			{#if barraAperta}
+				<span class="text-sm font-semibold">Preset</span>
+			{/if}
+			<button
+				type="button"
+				class="rounded p-1 hover:bg-black/5"
+				aria-label={barraAperta ? 'Chiudi barra laterale' : 'Apri barra laterale'}
+				title={barraAperta ? 'Chiudi' : 'Apri'}
+				onclick={() => (barraAperta = !barraAperta)}
+			>
+				<svg
+					class="size-5"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<path d={barraAperta ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'} />
+				</svg>
+			</button>
 		</div>
 
-		<details class="mt-6 rounded border p-3">
-			<summary class="cursor-pointer text-sm select-none">Parametri avanzati</summary>
+		{#if barraAperta}
+			<ul class="px-2">
+				{#each presets as preset (preset.id)}
+					<li>
+						<button
+							type="button"
+							class="w-full truncate rounded px-2 py-1.5 text-left text-sm hover:bg-black/5
+								{preset.id === idSelezionato ? 'bg-black/10 font-medium' : ''}"
+							onclick={() => selezionaPreset(preset)}
+						>
+							{preset.nome}
+						</button>
+					</li>
+				{/each}
+			</ul>
 
-			<div class="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-				<label class="block">
-					<span class="text-sm">Idratazione desiderata (% da 50 a 100)</span>
-					<input
-						type="number"
-						min="50"
-						max="100"
-						step="1"
-						bind:value={idratazione}
-						class="mt-1 w-full"
-					/>
-				</label>
-
-				<label class="block">
-					<span class="text-sm">Sale (grammi per litro)</span>
-					<input type="number" min="0" step="1" bind:value={salePerLitro} class="mt-1 w-full" />
-				</label>
-
-				<label class="block">
-					<span class="text-sm">Ore di lievitazione totali...</span>
-					<input type="number" min="0" step="1" bind:value={oreLievitazione} class="mt-1 w-full" />
-				</label>
-
-				<label class="block">
-					<span class="text-sm">... di cui Ore in frigorifero</span>
-					<input
-						type="number"
-						min="0"
-						max={oreLievitazione}
-						step="1"
-						bind:value={oreFrigo}
-						class="mt-1 w-full"
-					/>
-				</label>
-
-				<label class="block">
-					<span class="text-sm">Olio (grammi per litro)</span>
-					<input type="number" min="0" step="1" bind:value={olioPerLitro} class="mt-1 w-full" />
-				</label>
-
-				<label class="block">
-					<span class="text-sm">Pasta di riporto (% su impasto totale)</span>
-					<input
-						type="number"
-						min="0"
-						max="100"
-						step="1"
-						bind:value={percentualeRiporto}
-						class="mt-1 w-full"
-					/>
-				</label>
-
-				<fieldset>
-					<legend class="text-sm">Tipologia pasta di riporto</legend>
-					<div class="mt-1 flex h-full justify-between gap-2">
-						<label class="flex items-center gap-2">
-							<input type="radio" value="stanca" bind:group={tipoRiporto} />
-							<span>Stanca</span>
-						</label>
-						<label class="flex items-center gap-2">
-							<input type="radio" value="normale" bind:group={tipoRiporto} />
-							<span>Normale</span>
-						</label>
-						<label class="flex items-center gap-2">
-							<input type="radio" value="vivace" bind:group={tipoRiporto} />
-							<span>Vivace</span>
-						</label>
-					</div>
-				</fieldset>
-
-				<fieldset>
-					<legend class="text-sm">Pizza in teglia</legend>
-					<div class="mt-1 flex h-full justify-start gap-4">
-						<label class="flex items-center gap-2">
-							<input type="radio" value={false} bind:group={inTeglia} />
-							<span>No</span>
-						</label>
-						<label class="flex items-center gap-2">
-							<input type="radio" value={true} bind:group={inTeglia} />
-							<span>Si</span>
-						</label>
-					</div>
-				</fieldset>
+			<div class="p-2">
+				<button
+					type="button"
+					class="flex w-full items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-black/5"
+					onclick={nuovoPreset}
+				>
+					<svg
+						class="size-4"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						aria-hidden="true"
+					>
+						<path d="M12 5v14M5 12h14" />
+					</svg>
+					Nuovo preset
+				</button>
 			</div>
-		</details>
-	</form>
+		{/if}
+	</aside>
 
-	<hr class="my-6" />
+	<main class="mx-auto w-full max-w-3xl p-4">
+		<div class="mb-4 flex items-center gap-2 border-b pb-2">
+			{#if inRinomina && presetSelezionato}
+				<input
+					type="text"
+					class="min-w-0 flex-1 text-lg"
+					bind:value={presetSelezionato.nome}
+					use:autofocus
+					onblur={() => (inRinomina = false)}
+					onkeydown={(e) => {
+						if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
+					}}
+				/>
+			{:else}
+				<h2 class="min-w-0 flex-1 truncate text-lg font-semibold">
+					{presetSelezionato?.nome ?? 'Nessun preset'}
+					{#if modificato}<span class="text-sm font-normal">•</span>{/if}
+				</h2>
+			{/if}
 
-	<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-		<p class="rounded border p-3 text-center">Farina: {risultati.farina} g</p>
-		<p class="rounded border p-3 text-center">Acqua: {risultati.acqua} g</p>
-		<p class="rounded border p-3 text-center">Sale: {risultati.sale} g</p>
-		<p class="rounded border p-3 text-center">Olio: {risultati.olio} g</p>
-		<p class="rounded border p-3 text-center">Pasta di riporto: {risultati.riporto} g</p>
-		<p class="rounded border p-3 text-center">Lievito di birra secco: {risultati.lievito} g</p>
-	</div>
+			<button
+				type="button"
+				class="rounded p-1.5 hover:bg-black/5 disabled:opacity-40"
+				aria-label="Rinomina preset"
+				title="Rinomina"
+				disabled={!presetSelezionato}
+				onclick={() => (inRinomina = true)}
+			>
+				<svg
+					class="size-5"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<path d="M12 20h9" />
+					<path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
+				</svg>
+			</button>
+
+			<button
+				type="button"
+				class="rounded p-1.5 hover:bg-black/5 disabled:opacity-40"
+				aria-label="Salva parametri nel preset"
+				title="Salva nel preset"
+				disabled={!modificato}
+				onclick={salvaPreset}
+			>
+				<svg
+					class="size-5"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+					<path d="M17 21v-8H7v8M7 3v5h8" />
+				</svg>
+			</button>
+		</div>
+
+		<form>
+			<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
+				<label class="block">
+					<span class="text-sm">Numero panetti</span>
+					<input type="number" min="1" step="1" bind:value={numeroPanetti} class="mt-1 w-full" />
+				</label>
+
+				<label class="block">
+					<span class="text-sm">Peso panetti (grammi)</span>
+					<input
+						type="number"
+						min="0"
+						step="1"
+						bind:value={valori.pesoPanetti}
+						class="mt-1 w-full"
+					/>
+				</label>
+
+				<label class="block">
+					<span class="text-sm">Temperatura ambiente (°C)</span>
+					<input type="number" step="1" bind:value={temperatura} class="mt-1 w-full" />
+				</label>
+			</div>
+
+			<details class="mt-6 rounded border p-3">
+				<summary class="cursor-pointer text-sm select-none">Parametri avanzati</summary>
+
+				<div class="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+					<label class="block">
+						<span class="text-sm">Idratazione desiderata (% da 50 a 100)</span>
+						<input
+							type="number"
+							min="50"
+							max="100"
+							step="1"
+							bind:value={valori.idratazione}
+							class="mt-1 w-full"
+						/>
+					</label>
+
+					<label class="block">
+						<span class="text-sm">Sale (grammi per litro)</span>
+						<input
+							type="number"
+							min="0"
+							step="1"
+							bind:value={valori.salePerLitro}
+							class="mt-1 w-full"
+						/>
+					</label>
+
+					<label class="block">
+						<span class="text-sm">Ore di lievitazione totali...</span>
+						<input
+							type="number"
+							min="0"
+							step="1"
+							bind:value={valori.oreLievitazione}
+							class="mt-1 w-full"
+						/>
+					</label>
+
+					<label class="block">
+						<span class="text-sm">... di cui Ore in frigorifero</span>
+						<input
+							type="number"
+							min="0"
+							max={valori.oreLievitazione}
+							step="1"
+							bind:value={valori.oreFrigo}
+							class="mt-1 w-full"
+						/>
+					</label>
+
+					<label class="block">
+						<span class="text-sm">Olio (grammi per litro)</span>
+						<input
+							type="number"
+							min="0"
+							step="1"
+							bind:value={valori.olioPerLitro}
+							class="mt-1 w-full"
+						/>
+					</label>
+
+					<label class="block">
+						<span class="text-sm">Pasta di riporto (% su impasto totale)</span>
+						<input
+							type="number"
+							min="0"
+							max="100"
+							step="1"
+							bind:value={valori.percentualeRiporto}
+							class="mt-1 w-full"
+						/>
+					</label>
+
+					<fieldset>
+						<legend class="text-sm">Tipologia pasta di riporto</legend>
+						<div class="mt-1 flex h-full justify-between gap-2">
+							<label class="flex items-center gap-2">
+								<input type="radio" value="stanca" bind:group={valori.tipoRiporto} />
+								<span>Stanca</span>
+							</label>
+							<label class="flex items-center gap-2">
+								<input type="radio" value="normale" bind:group={valori.tipoRiporto} />
+								<span>Normale</span>
+							</label>
+							<label class="flex items-center gap-2">
+								<input type="radio" value="vivace" bind:group={valori.tipoRiporto} />
+								<span>Vivace</span>
+							</label>
+						</div>
+					</fieldset>
+
+					<fieldset>
+						<legend class="text-sm">Pizza in teglia</legend>
+						<div class="mt-1 flex h-full justify-start gap-4">
+							<label class="flex items-center gap-2">
+								<input type="radio" value={false} bind:group={valori.inTeglia} />
+								<span>No</span>
+							</label>
+							<label class="flex items-center gap-2">
+								<input type="radio" value={true} bind:group={valori.inTeglia} />
+								<span>Si</span>
+							</label>
+						</div>
+					</fieldset>
+				</div>
+			</details>
+		</form>
+
+		<hr class="my-6" />
+
+		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+			<p class="rounded border p-3 text-center">Farina: {risultati.farina} g</p>
+			<p class="rounded border p-3 text-center">Acqua: {risultati.acqua} g</p>
+			<p class="rounded border p-3 text-center">Sale: {risultati.sale} g</p>
+			<p class="rounded border p-3 text-center">Olio: {risultati.olio} g</p>
+			<p class="rounded border p-3 text-center">Pasta di riporto: {risultati.riporto} g</p>
+			<p class="rounded border p-3 text-center">Lievito di birra secco: {risultati.lievito} g</p>
+		</div>
+	</main>
 </div>
