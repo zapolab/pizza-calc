@@ -20,6 +20,7 @@
 	let temperatura = $state(20);
 
 	let barraAperta = $state(true);
+	let barraMobileAperta = $state(false);
 	let inRinomina = $state(false);
 
 	const presetSelezionato = $derived(presets.find((p) => p.id === idSelezionato) ?? null);
@@ -32,6 +33,7 @@
 		idSelezionato = preset.id;
 		valori = clonaValori(preset.valori);
 		inRinomina = false;
+		barraMobileAperta = false;
 	}
 
 	function nuovoPreset() {
@@ -39,6 +41,7 @@
 		presets.push(preset);
 		idSelezionato = preset.id;
 		inRinomina = true;
+		barraMobileAperta = false;
 	}
 
 	function salvaPreset() {
@@ -63,16 +66,49 @@
 </script>
 
 <div class="flex min-h-screen">
-	<aside class="shrink-0 border-r {barraAperta ? 'w-56' : 'w-12'}">
+	{#if barraMobileAperta}
+		<button
+			type="button"
+			class="fixed inset-0 z-30 bg-black/40 sm:hidden"
+			aria-label="Chiudi barra laterale"
+			onclick={() => (barraMobileAperta = false)}
+		></button>
+	{/if}
+
+	<aside
+		class="fixed inset-y-0 left-0 z-40 w-56 shrink-0 overflow-y-auto border-r bg-white transition-transform
+			sm:static sm:translate-x-0 sm:bg-transparent sm:transition-none
+			{barraMobileAperta ? 'translate-x-0' : '-translate-x-full'}
+			{barraAperta ? 'sm:w-56' : 'sm:w-12'}"
+	>
 		<div class="flex items-center justify-between gap-2 p-2">
-			{#if barraAperta}
-				<span class="text-sm font-semibold">Preset</span>
-			{/if}
+			<span class="text-sm font-semibold {barraAperta ? '' : 'hidden max-sm:inline'}">Preset</span>
+
 			<button
 				type="button"
-				class="rounded p-1 hover:bg-black/5"
-				aria-label={barraAperta ? 'Chiudi barra laterale' : 'Apri barra laterale'}
-				title={barraAperta ? 'Chiudi' : 'Apri'}
+				class="rounded p-1 hover:bg-black/5 sm:hidden"
+				aria-label="Chiudi barra laterale"
+				onclick={() => (barraMobileAperta = false)}
+			>
+				<svg
+					class="size-5"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<path d="M18 6L6 18M6 6l12 12" />
+				</svg>
+			</button>
+
+			<button
+				type="button"
+				class="rounded p-1 hover:bg-black/5 max-sm:hidden"
+				aria-label={barraAperta ? 'Comprimi barra laterale' : 'Espandi barra laterale'}
+				title={barraAperta ? 'Comprimi' : 'Espandi'}
 				onclick={() => (barraAperta = !barraAperta)}
 			>
 				<svg
@@ -90,7 +126,7 @@
 			</button>
 		</div>
 
-		{#if barraAperta}
+		<div class={barraAperta ? '' : 'hidden max-sm:block'}>
 			<ul class="px-2">
 				{#each presets as preset (preset.id)}
 					<li>
@@ -126,11 +162,30 @@
 					Nuovo preset
 				</button>
 			</div>
-		{/if}
+		</div>
 	</aside>
 
 	<main class="mx-auto w-full max-w-3xl p-4">
 		<div class="mb-4 flex items-center gap-2 border-b pb-2">
+			<button
+				type="button"
+				class="rounded p-1.5 hover:bg-black/5 sm:hidden"
+				aria-label="Apri barra laterale"
+				onclick={() => (barraMobileAperta = true)}
+			>
+				<svg
+					class="size-5"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					aria-hidden="true"
+				>
+					<path d="M4 6h16M4 12h16M4 18h16" />
+				</svg>
+			</button>
+
 			{#if inRinomina && presetSelezionato}
 				<input
 					type="text"
