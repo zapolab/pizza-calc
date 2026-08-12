@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { computeResults } from '$lib/dough';
 	import { cloneValues, defaultValues, type Preset } from '$lib/presets';
 
 	// Placeholder until the sqlite backend is in place.
@@ -61,15 +62,7 @@
 		node.select();
 	}
 
-	// Placeholder: the formulas are not implemented yet.
-	const results = {
-		flour: 0,
-		water: 0,
-		salt: 0,
-		oil: 0,
-		dryYeast: 0,
-		wetYeast: 0
-	};
+	const results = $derived(computeResults(values));
 </script>
 
 <div class="flex min-h-screen">
