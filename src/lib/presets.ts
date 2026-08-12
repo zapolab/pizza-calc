@@ -1,35 +1,33 @@
-export type TipoRiporto = 'stanca' | 'normale' | 'vivace';
-
-export type ValoriPreset = {
-	pesoPanetti: number;
-	idratazione: number;
-	salePerLitro: number;
-	oreLievitazione: number;
-	oreFrigo: number;
-	olioPerLitro: number;
-	percentualeRiporto: number;
-	tipoRiporto: TipoRiporto;
-	inTeglia: boolean;
+export type PresetValues = {
+	doughBallCount: number;
+	doughBallWeight: number;
+	hydration: number;
+	proofingHours: number;
+	fridgeHours: number;
+	saltPerLiter: number;
+	oilPerLiter: number;
+	roomTemperature: number;
+	panPizza: boolean;
 };
 
 export type Preset = {
 	id: number;
-	nome: string;
-	valori: ValoriPreset;
+	name: string;
+	values: PresetValues;
 };
 
-export const valoriPredefiniti: ValoriPreset = {
-	pesoPanetti: 200,
-	idratazione: 65,
-	salePerLitro: 50,
-	oreLievitazione: 24,
-	oreFrigo: 0,
-	olioPerLitro: 0,
-	percentualeRiporto: 0,
-	tipoRiporto: 'normale',
-	inTeglia: false
+export const defaultValues: PresetValues = {
+	doughBallCount: 1,
+	doughBallWeight: 200,
+	hydration: 65,
+	proofingHours: 24,
+	fridgeHours: 0,
+	saltPerLiter: 50,
+	oilPerLiter: 0,
+	roomTemperature: 20,
+	panPizza: false
 };
 
-export function clonaValori(valori: ValoriPreset): ValoriPreset {
-	return { ...valori };
+export function cloneValues(values: PresetValues): PresetValues {
+	return { ...values };
 }

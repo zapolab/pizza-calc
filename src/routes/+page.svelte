@@ -1,64 +1,59 @@
 <script lang="ts">
-	import { clonaValori, valoriPredefiniti, type Preset } from '$lib/presets';
+	import { cloneValues, defaultValues, type Preset } from '$lib/presets';
 
-	// Segnaposto in attesa del backend sqlite.
+	// Placeholder until the sqlite backend is in place.
 	let presets = $state<Preset[]>([
-		{ id: 1, nome: 'Napoletana', valori: clonaValori(valoriPredefiniti) },
+		{ id: 1, name: 'Napoletana', values: cloneValues(defaultValues) },
 		{
 			id: 2,
-			nome: 'Teglia romana',
-			valori: { ...valoriPredefiniti, pesoPanetti: 700, idratazione: 80, inTeglia: true }
+			name: 'Teglia romana',
+			values: { ...defaultValues, doughBallWeight: 700, hydration: 80, panPizza: true }
 		}
 	]);
-	let prossimoId = $state(3);
+	let nextId = $state(3);
 
-	let idSelezionato = $state<number | null>(1);
-	let valori = $state(clonaValori(presets[0].valori));
+	let selectedId = $state<number | null>(1);
+	let values = $state(cloneValues(presets[0].values));
 
-	// Non fanno parte del preset.
-	let numeroPanetti = $state(1);
-	let temperatura = $state(20);
+	let sidebarOpen = $state(true);
+	let mobileSidebarOpen = $state(false);
+	let renaming = $state(false);
+	let deleteDialog = $state<HTMLDialogElement | null>(null);
 
-	let barraAperta = $state(true);
-	let barraMobileAperta = $state(false);
-	let inRinomina = $state(false);
-	let dialogElimina = $state<HTMLDialogElement | null>(null);
-
-	const presetSelezionato = $derived(presets.find((p) => p.id === idSelezionato) ?? null);
-	const modificato = $derived(
-		presetSelezionato !== null &&
-			JSON.stringify(presetSelezionato.valori) !== JSON.stringify(valori)
+	const selectedPreset = $derived(presets.find((p) => p.id === selectedId) ?? null);
+	const dirty = $derived(
+		selectedPreset !== null && JSON.stringify(selectedPreset.values) !== JSON.stringify(values)
 	);
 
-	function selezionaPreset(preset: Preset) {
-		idSelezionato = preset.id;
-		valori = clonaValori(preset.valori);
-		inRinomina = false;
-		barraMobileAperta = false;
+	function selectPreset(preset: Preset) {
+		selectedId = preset.id;
+		values = cloneValues(preset.values);
+		renaming = false;
+		mobileSidebarOpen = false;
 	}
 
-	function nuovoPreset() {
-		const preset: Preset = { id: prossimoId++, nome: 'Nuovo preset', valori: clonaValori(valori) };
+	function createPreset() {
+		const preset: Preset = { id: nextId++, name: 'Nuovo preset', values: cloneValues(values) };
 		presets.push(preset);
-		idSelezionato = preset.id;
-		inRinomina = true;
-		barraMobileAperta = false;
+		selectedId = preset.id;
+		renaming = true;
+		mobileSidebarOpen = false;
 	}
 
-	function salvaPreset() {
-		if (!presetSelezionato) return;
-		presetSelezionato.valori = clonaValori(valori);
+	function savePreset() {
+		if (!selectedPreset) return;
+		selectedPreset.values = cloneValues(values);
 	}
 
-	function eliminaPreset() {
-		const i = presets.findIndex((p) => p.id === idSelezionato);
+	function deletePreset() {
+		const i = presets.findIndex((p) => p.id === selectedId);
 		if (i === -1) return;
 		presets.splice(i, 1);
-		const successivo = presets[i] ?? presets[i - 1] ?? null;
-		idSelezionato = successivo?.id ?? null;
-		if (successivo) valori = clonaValori(successivo.valori);
-		inRinomina = false;
-		dialogElimina?.close();
+		const next = presets[i] ?? presets[i - 1] ?? null;
+		selectedId = next?.id ?? null;
+		if (next) values = cloneValues(next.values);
+		renaming = false;
+		deleteDialog?.close();
 	}
 
 	function autofocus(node: HTMLInputElement) {
@@ -66,41 +61,41 @@
 		node.select();
 	}
 
-	// Segnaposto: le formule non sono ancora implementate.
-	const risultati = {
-		farina: 0,
-		acqua: 0,
-		sale: 0,
-		olio: 0,
-		riporto: 0,
-		lievito: 0
+	// Placeholder: the formulas are not implemented yet.
+	const results = {
+		flour: 0,
+		water: 0,
+		salt: 0,
+		oil: 0,
+		dryYeast: 0,
+		wetYeast: 0
 	};
 </script>
 
 <div class="flex min-h-screen">
-	{#if barraMobileAperta}
+	{#if mobileSidebarOpen}
 		<button
 			type="button"
 			class="fixed inset-0 z-30 bg-black/40 sm:hidden"
 			aria-label="Chiudi barra laterale"
-			onclick={() => (barraMobileAperta = false)}
+			onclick={() => (mobileSidebarOpen = false)}
 		></button>
 	{/if}
 
 	<aside
 		class="fixed inset-y-0 left-0 z-40 w-56 shrink-0 overflow-y-auto border-r bg-white transition-transform
 			sm:static sm:translate-x-0 sm:bg-transparent sm:transition-none
-			{barraMobileAperta ? 'translate-x-0' : '-translate-x-full'}
-			{barraAperta ? 'sm:w-56' : 'sm:w-12'}"
+			{mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+			{sidebarOpen ? 'sm:w-56' : 'sm:w-12'}"
 	>
 		<div class="flex items-center justify-between gap-2 p-2">
-			<span class="text-sm font-semibold {barraAperta ? '' : 'hidden max-sm:inline'}">Preset</span>
+			<span class="text-sm font-semibold {sidebarOpen ? '' : 'hidden max-sm:inline'}">Preset</span>
 
 			<button
 				type="button"
 				class="rounded p-1 hover:bg-black/5 sm:hidden"
 				aria-label="Chiudi barra laterale"
-				onclick={() => (barraMobileAperta = false)}
+				onclick={() => (mobileSidebarOpen = false)}
 			>
 				<svg
 					class="size-5"
@@ -119,9 +114,9 @@
 			<button
 				type="button"
 				class="rounded p-1 hover:bg-black/5 max-sm:hidden"
-				aria-label={barraAperta ? 'Comprimi barra laterale' : 'Espandi barra laterale'}
-				title={barraAperta ? 'Comprimi' : 'Espandi'}
-				onclick={() => (barraAperta = !barraAperta)}
+				aria-label={sidebarOpen ? 'Comprimi barra laterale' : 'Espandi barra laterale'}
+				title={sidebarOpen ? 'Comprimi' : 'Espandi'}
+				onclick={() => (sidebarOpen = !sidebarOpen)}
 			>
 				<svg
 					class="size-5"
@@ -133,22 +128,22 @@
 					stroke-linejoin="round"
 					aria-hidden="true"
 				>
-					<path d={barraAperta ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'} />
+					<path d={sidebarOpen ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'} />
 				</svg>
 			</button>
 		</div>
 
-		<div class={barraAperta ? '' : 'hidden max-sm:block'}>
+		<div class={sidebarOpen ? '' : 'hidden max-sm:block'}>
 			<ul class="px-2">
 				{#each presets as preset (preset.id)}
 					<li>
 						<button
 							type="button"
 							class="w-full truncate rounded px-2 py-1.5 text-left text-sm hover:bg-black/5
-								{preset.id === idSelezionato ? 'bg-black/10 font-medium' : ''}"
-							onclick={() => selezionaPreset(preset)}
+								{preset.id === selectedId ? 'bg-black/10 font-medium' : ''}"
+							onclick={() => selectPreset(preset)}
 						>
-							{preset.nome}
+							{preset.name}
 						</button>
 					</li>
 				{/each}
@@ -158,7 +153,7 @@
 				<button
 					type="button"
 					class="flex w-full items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-black/5"
-					onclick={nuovoPreset}
+					onclick={createPreset}
 				>
 					<svg
 						class="size-4"
@@ -183,7 +178,7 @@
 				type="button"
 				class="rounded p-1.5 hover:bg-black/5 sm:hidden"
 				aria-label="Apri barra laterale"
-				onclick={() => (barraMobileAperta = true)}
+				onclick={() => (mobileSidebarOpen = true)}
 			>
 				<svg
 					class="size-5"
@@ -198,21 +193,21 @@
 				</svg>
 			</button>
 
-			{#if inRinomina && presetSelezionato}
+			{#if renaming && selectedPreset}
 				<input
 					type="text"
 					class="min-w-0 flex-1 text-lg"
-					bind:value={presetSelezionato.nome}
+					bind:value={selectedPreset.name}
 					use:autofocus
-					onblur={() => (inRinomina = false)}
+					onblur={() => (renaming = false)}
 					onkeydown={(e) => {
 						if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
 					}}
 				/>
 			{:else}
 				<h2 class="min-w-0 flex-1 truncate text-lg font-semibold">
-					{presetSelezionato?.nome ?? 'Nessun preset'}
-					{#if modificato}<span class="text-sm font-normal">•</span>{/if}
+					{selectedPreset?.name ?? 'Nessun preset'}
+					{#if dirty}<span class="text-sm font-normal">•</span>{/if}
 				</h2>
 			{/if}
 
@@ -221,8 +216,8 @@
 				class="rounded p-1.5 hover:bg-black/5 disabled:opacity-40"
 				aria-label="Rinomina preset"
 				title="Rinomina"
-				disabled={!presetSelezionato}
-				onclick={() => (inRinomina = true)}
+				disabled={!selectedPreset}
+				onclick={() => (renaming = true)}
 			>
 				<svg
 					class="size-5"
@@ -244,8 +239,8 @@
 				class="rounded p-1.5 hover:bg-black/5 disabled:opacity-40"
 				aria-label="Salva parametri nel preset"
 				title="Salva nel preset"
-				disabled={!modificato}
-				onclick={salvaPreset}
+				disabled={!dirty}
+				onclick={savePreset}
 			>
 				<svg
 					class="size-5"
@@ -267,8 +262,8 @@
 				class="rounded p-1.5 hover:bg-black/5 disabled:opacity-40"
 				aria-label="Elimina preset"
 				title="Elimina preset"
-				disabled={!presetSelezionato}
-				onclick={() => dialogElimina?.showModal()}
+				disabled={!selectedPreset}
+				onclick={() => deleteDialog?.showModal()}
 			>
 				<svg
 					class="size-5"
@@ -288,25 +283,25 @@
 		</div>
 
 		<dialog
-			bind:this={dialogElimina}
+			bind:this={deleteDialog}
 			class="m-auto max-w-sm rounded border bg-white p-4 backdrop:bg-black/40"
 		>
 			<h3 class="text-lg font-semibold">Eliminare il preset?</h3>
 			<p class="mt-2 text-sm">
-				Il preset <strong>{presetSelezionato?.nome}</strong> verrà eliminato definitivamente.
+				Il preset <strong>{selectedPreset?.name}</strong> verrà eliminato definitivamente.
 			</p>
 			<div class="mt-4 flex justify-end gap-2">
 				<button
 					type="button"
 					class="rounded border px-3 py-1.5 text-sm hover:bg-black/5"
-					onclick={() => dialogElimina?.close()}
+					onclick={() => deleteDialog?.close()}
 				>
 					Annulla
 				</button>
 				<button
 					type="button"
 					class="rounded border border-red-600 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-					onclick={eliminaPreset}
+					onclick={deletePreset}
 				>
 					Elimina
 				</button>
@@ -317,7 +312,13 @@
 			<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
 				<label class="block">
 					<span class="text-sm">Numero panetti</span>
-					<input type="number" min="1" step="1" bind:value={numeroPanetti} class="mt-1 w-full" />
+					<input
+						type="number"
+						min="1"
+						step="1"
+						bind:value={values.doughBallCount}
+						class="mt-1 w-full"
+					/>
 				</label>
 
 				<label class="block">
@@ -326,14 +327,21 @@
 						type="number"
 						min="0"
 						step="1"
-						bind:value={valori.pesoPanetti}
+						bind:value={values.doughBallWeight}
 						class="mt-1 w-full"
 					/>
 				</label>
 
 				<label class="block">
-					<span class="text-sm">Temperatura ambiente (°C)</span>
-					<input type="number" step="1" bind:value={temperatura} class="mt-1 w-full" />
+					<span class="text-sm">Idratazione impasto (%)</span>
+					<input
+						type="number"
+						min="50"
+						max="100"
+						step="1"
+						bind:value={values.hydration}
+						class="mt-1 w-full"
+					/>
 				</label>
 			</div>
 
@@ -342,13 +350,24 @@
 
 				<div class="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
 					<label class="block">
-						<span class="text-sm">Idratazione desiderata (% da 50 a 100)</span>
+						<span class="text-sm">Ore di lievitazione totali</span>
 						<input
 							type="number"
-							min="50"
-							max="100"
+							min="0"
 							step="1"
-							bind:value={valori.idratazione}
+							bind:value={values.proofingHours}
+							class="mt-1 w-full"
+						/>
+					</label>
+
+					<label class="block">
+						<span class="text-sm">Ore di riposo in frigorifero (sul totale)</span>
+						<input
+							type="number"
+							min="0"
+							max={values.proofingHours}
+							step="1"
+							bind:value={values.fridgeHours}
 							class="mt-1 w-full"
 						/>
 					</label>
@@ -359,30 +378,7 @@
 							type="number"
 							min="0"
 							step="1"
-							bind:value={valori.salePerLitro}
-							class="mt-1 w-full"
-						/>
-					</label>
-
-					<label class="block">
-						<span class="text-sm">Ore di lievitazione totali...</span>
-						<input
-							type="number"
-							min="0"
-							step="1"
-							bind:value={valori.oreLievitazione}
-							class="mt-1 w-full"
-						/>
-					</label>
-
-					<label class="block">
-						<span class="text-sm">... di cui Ore in frigorifero</span>
-						<input
-							type="number"
-							min="0"
-							max={valori.oreLievitazione}
-							step="1"
-							bind:value={valori.oreFrigo}
+							bind:value={values.saltPerLiter}
 							class="mt-1 w-full"
 						/>
 					</label>
@@ -393,50 +389,25 @@
 							type="number"
 							min="0"
 							step="1"
-							bind:value={valori.olioPerLitro}
+							bind:value={values.oilPerLiter}
 							class="mt-1 w-full"
 						/>
 					</label>
 
 					<label class="block">
-						<span class="text-sm">Pasta di riporto (% su impasto totale)</span>
-						<input
-							type="number"
-							min="0"
-							max="100"
-							step="1"
-							bind:value={valori.percentualeRiporto}
-							class="mt-1 w-full"
-						/>
+						<span class="text-sm">Temperatura ambiente (°C)</span>
+						<input type="number" step="1" bind:value={values.roomTemperature} class="mt-1 w-full" />
 					</label>
-
-					<fieldset>
-						<legend class="text-sm">Tipologia pasta di riporto</legend>
-						<div class="mt-1 flex h-full justify-between gap-2">
-							<label class="flex items-center gap-2">
-								<input type="radio" value="stanca" bind:group={valori.tipoRiporto} />
-								<span>Stanca</span>
-							</label>
-							<label class="flex items-center gap-2">
-								<input type="radio" value="normale" bind:group={valori.tipoRiporto} />
-								<span>Normale</span>
-							</label>
-							<label class="flex items-center gap-2">
-								<input type="radio" value="vivace" bind:group={valori.tipoRiporto} />
-								<span>Vivace</span>
-							</label>
-						</div>
-					</fieldset>
 
 					<fieldset>
 						<legend class="text-sm">Pizza in teglia</legend>
 						<div class="mt-1 flex h-full justify-start gap-4">
 							<label class="flex items-center gap-2">
-								<input type="radio" value={false} bind:group={valori.inTeglia} />
+								<input type="radio" value={false} bind:group={values.panPizza} />
 								<span>No</span>
 							</label>
 							<label class="flex items-center gap-2">
-								<input type="radio" value={true} bind:group={valori.inTeglia} />
+								<input type="radio" value={true} bind:group={values.panPizza} />
 								<span>Si</span>
 							</label>
 						</div>
@@ -448,12 +419,12 @@
 		<hr class="my-6" />
 
 		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-			<p class="rounded border p-3 text-center">Farina: {risultati.farina} g</p>
-			<p class="rounded border p-3 text-center">Acqua: {risultati.acqua} g</p>
-			<p class="rounded border p-3 text-center">Sale: {risultati.sale} g</p>
-			<p class="rounded border p-3 text-center">Olio: {risultati.olio} g</p>
-			<p class="rounded border p-3 text-center">Pasta di riporto: {risultati.riporto} g</p>
-			<p class="rounded border p-3 text-center">Lievito di birra secco: {risultati.lievito} g</p>
+			<p class="rounded border p-3 text-center">Farina: {results.flour} g</p>
+			<p class="rounded border p-3 text-center">Acqua: {results.water} g</p>
+			<p class="rounded border p-3 text-center">Sale: {results.salt} g</p>
+			<p class="rounded border p-3 text-center">Olio: {results.oil} g</p>
+			<p class="rounded border p-3 text-center">Lievito di birra secco: {results.dryYeast} g</p>
+			<p class="rounded border p-3 text-center">Lievito di birra fresco: {results.wetYeast} g</p>
 		</div>
 	</main>
 </div>
