@@ -40,9 +40,6 @@
 	});
 
 	const selectedPreset = $derived(presets.find((p) => p.id === selectedId) ?? null);
-	const dirty = $derived(
-		selectedPreset !== null && JSON.stringify(selectedPreset.values) !== JSON.stringify(values)
-	);
 
 	function selectPreset(preset: Preset) {
 		selectedId = preset.id;
@@ -60,9 +57,12 @@
 	}
 
 	function savePreset() {
-		if (!selectedPreset) return;
-		selectedPreset.values = cloneValues(values);
+		const snapshot = cloneValues(values);
+		if (selectedPreset) selectedPreset.values = snapshot;
 	}
+
+	// Autosave: every field change lands in the selected preset.
+	$effect(savePreset);
 
 	function deletePreset() {
 		const i = presets.findIndex((p) => p.id === selectedId);
@@ -218,7 +218,6 @@
 			{:else}
 				<h2 class="min-w-0 flex-1 truncate text-lg font-semibold">
 					{selectedPreset?.name ?? 'Nessun preset'}
-					{#if dirty}<span class="text-sm font-normal">•</span>{/if}
 				</h2>
 			{/if}
 
@@ -242,29 +241,6 @@
 				>
 					<path d="M12 20h9" />
 					<path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
-				</svg>
-			</button>
-
-			<button
-				type="button"
-				class="rounded p-1.5 hover:bg-black/5 disabled:opacity-40"
-				aria-label="Salva parametri nel preset"
-				title="Salva nel preset"
-				disabled={!dirty}
-				onclick={savePreset}
-			>
-				<svg
-					class="size-5"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-				>
-					<path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
-					<path d="M17 21v-8H7v8M7 3v5h8" />
 				</svg>
 			</button>
 
