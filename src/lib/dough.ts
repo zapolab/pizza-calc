@@ -1,6 +1,7 @@
 import { clampValues, type PresetValues } from './presets';
 
 export type Results = {
+	totalWeight: number;
 	flour: number;
 	water: number;
 	salt: number;
@@ -50,6 +51,7 @@ export function computeResults(values: PresetValues): Results {
 	const dryYeast = round(wetYeast * DRY_YEAST_FACTOR, 2);
 
 	return {
+		totalWeight,
 		flour,
 		water,
 		salt,
