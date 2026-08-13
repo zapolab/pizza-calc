@@ -452,13 +452,42 @@
 			</p>
 		{/if}
 
-		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-			<p class="rounded border p-3 text-center">Farina: {results.flour} g</p>
-			<p class="rounded border p-3 text-center">Acqua: {results.water} g</p>
-			<p class="rounded border p-3 text-center">Sale: {results.salt} g</p>
-			<p class="rounded border p-3 text-center">Olio: {results.oil} g</p>
-			<p class="rounded border p-3 text-center">Lievito di birra secco: {results.dryYeast} g</p>
-			<p class="rounded border p-3 text-center">Lievito di birra fresco: {results.wetYeast} g</p>
-		</div>
+		<ul class="space-y-2 rounded border p-4">
+			<li class="flex items-baseline gap-2">
+				<span>Farina</span>
+				<span class="min-w-4 flex-1 border-b border-dotted border-black/25"></span>
+				<span class="font-medium tabular-nums">{results.flour} g</span>
+			</li>
+			<li class="flex items-baseline gap-2">
+				<span>Acqua</span>
+				<span class="min-w-4 flex-1 border-b border-dotted border-black/25"></span>
+				<span class="font-medium tabular-nums">{results.water} g</span>
+			</li>
+			<li class="flex items-baseline gap-2">
+				<span>Sale</span>
+				<span class="min-w-4 flex-1 border-b border-dotted border-black/25"></span>
+				<span class="font-medium tabular-nums">{results.salt} g</span>
+			</li>
+			<li class="flex items-baseline gap-2">
+				<span>Olio</span>
+				<span class="min-w-4 flex-1 border-b border-dotted border-black/25"></span>
+				<span class="font-medium tabular-nums">{results.oil} g</span>
+			</li>
+			<li>
+				<span>Lievito di birra</span>
+				<ul class="mt-2 space-y-2 pl-4">
+					<li class="flex items-baseline gap-2">
+						<span class="text-black/70">Secco</span>
+						<span class="min-w-4 flex-1 border-b border-dotted border-black/25"></span>
+						<span class="font-medium tabular-nums">{results.dryYeast} g</span>
+					</li>
+					<li class="flex items-baseline gap-2">
+						<span class="text-black/70">Fresco</span>
+						<span class="min-w-4 flex-1 border-b border-dotted border-black/25"></span>
+						<span class="font-medium tabular-nums">{results.wetYeast} g</span>
+					</li>
+				</ul>
+			</li>
+		</ul>
 	</main>
 </div>
