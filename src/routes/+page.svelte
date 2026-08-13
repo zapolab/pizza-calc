@@ -472,5 +472,17 @@
 				<span class="text-xl font-bold tabular-nums">{results.totalWeight} g</span>
 			</div>
 		</div>
+
+		<hr class="my-6" />
+
+		<div>
+			<label for="notes" class="text-sm">Note</label>
+			<textarea
+				id="notes"
+				rows="4"
+				placeholder="Farina usata, tecnica di impasto, come è venuta…"
+				bind:value={values.notes}
+				class="mt-1 w-full resize-y rounded-md"></textarea>
+		</div>
 	</main>
 </div>
