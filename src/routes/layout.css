@@ -1,2 +1,20 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
+
+@layer base {
+	input:not([type='checkbox']):not([type='radio']),
+	select,
+	textarea {
+		border-radius: var(--radius-md);
+	}
+
+	input[type='number'] {
+		appearance: textfield;
+	}
+
+	input[type='number']::-webkit-inner-spin-button,
+	input[type='number']::-webkit-outer-spin-button {
+		margin: 0;
+		appearance: none;
+	}
+}
