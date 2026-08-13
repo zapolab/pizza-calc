@@ -11,6 +11,7 @@ export type PresetValues = {
 	roomTemperature: number;
 	panPizza: boolean;
 	yeastKind: YeastKind;
+	notes: string;
 };
 
 export type Preset = {
@@ -29,7 +30,8 @@ export const defaultValues: PresetValues = {
 	oilPerLiter: 0,
 	roomTemperature: 20,
 	panPizza: false,
-	yeastKind: 'dry'
+	yeastKind: 'dry',
+	notes: ''
 };
 
 export function cloneValues(values: PresetValues): PresetValues {
@@ -69,7 +71,8 @@ export function clampValues(values: PresetValues): PresetValues {
 		oilPerLiter: clamp(values.oilPerLiter, limits.oilPerLiter),
 		roomTemperature: clamp(values.roomTemperature, limits.roomTemperature),
 		panPizza: values.panPizza,
-		yeastKind: values.yeastKind
+		yeastKind: values.yeastKind,
+		notes: values.notes
 	};
 }
 
