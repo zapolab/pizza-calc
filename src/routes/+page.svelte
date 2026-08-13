@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { cloneValues, defaultValues, type Preset } from '$lib/presets';
+	import { computeResults } from '$lib/dough';
+	import { cloneValues, defaultValues, limits, validateValues, type Preset } from '$lib/presets';
 
 	// Placeholder until the sqlite backend is in place.
 	let presets = $state<Preset[]>([
@@ -17,8 +18,26 @@
 
 	let sidebarOpen = $state(true);
 	let mobileSidebarOpen = $state(false);
+	let advancedOpen = $state(false);
 	let renaming = $state(false);
 	let deleteDialog = $state<HTMLDialogElement | null>(null);
+
+	const errors = $derived(validateValues(values));
+	const hasErrors = $derived(Object.keys(errors).length > 0);
+	const hasAdvancedErrors = $derived(
+		Boolean(
+			errors.proofingHours ||
+			errors.fridgeHours ||
+			errors.saltPerLiter ||
+			errors.oilPerLiter ||
+			errors.roomTemperature
+		)
+	);
+
+	// An error inside the collapsed section would go unnoticed.
+	$effect(() => {
+		if (hasAdvancedErrors) advancedOpen = true;
+	});
 
 	const selectedPreset = $derived(presets.find((p) => p.id === selectedId) ?? null);
 	const dirty = $derived(
@@ -61,15 +80,7 @@
 		node.select();
 	}
 
-	// Placeholder: the formulas are not implemented yet.
-	const results = {
-		flour: 0,
-		water: 0,
-		salt: 0,
-		oil: 0,
-		dryYeast: 0,
-		wetYeast: 0
-	};
+	const results = $derived(computeResults(values));
 </script>
 
 <div class="flex min-h-screen">
@@ -308,95 +319,136 @@
 			</div>
 		</dialog>
 
+		{#snippet fieldError(message: string | undefined)}
+			{#if message}
+				<p class="mt-1 text-sm text-red-700">{message}</p>
+			{/if}
+		{/snippet}
+
 		<form>
 			<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
 				<label class="block">
 					<span class="text-sm">Numero panetti</span>
 					<input
 						type="number"
-						min="1"
+						min={limits.doughBallCount.min}
+						max={limits.doughBallCount.max}
 						step="1"
 						bind:value={values.doughBallCount}
-						class="mt-1 w-full"
+						aria-invalid={Boolean(errors.doughBallCount)}
+						class="mt-1 w-full {errors.doughBallCount ? 'border-red-600' : ''}"
 					/>
+					{@render fieldError(errors.doughBallCount)}
 				</label>
 
 				<label class="block">
 					<span class="text-sm">Peso panetti (grammi)</span>
 					<input
 						type="number"
-						min="0"
+						min={limits.doughBallWeight.min}
+						max={limits.doughBallWeight.max}
 						step="1"
 						bind:value={values.doughBallWeight}
-						class="mt-1 w-full"
+						aria-invalid={Boolean(errors.doughBallWeight)}
+						class="mt-1 w-full {errors.doughBallWeight ? 'border-red-600' : ''}"
 					/>
+					{@render fieldError(errors.doughBallWeight)}
 				</label>
 
 				<label class="block">
 					<span class="text-sm">Idratazione impasto (%)</span>
 					<input
 						type="number"
-						min="50"
-						max="100"
+						min={limits.hydration.min}
+						max={limits.hydration.max}
 						step="1"
 						bind:value={values.hydration}
-						class="mt-1 w-full"
+						aria-invalid={Boolean(errors.hydration)}
+						class="mt-1 w-full {errors.hydration ? 'border-red-600' : ''}"
 					/>
+					{@render fieldError(errors.hydration)}
 				</label>
 			</div>
 
-			<details class="mt-6 rounded border p-3">
-				<summary class="cursor-pointer text-sm select-none">Parametri avanzati</summary>
+			<details
+				bind:open={advancedOpen}
+				class="mt-6 rounded border p-3 {hasAdvancedErrors ? 'border-red-600' : ''}"
+			>
+				<summary
+					class="cursor-pointer text-sm select-none {hasAdvancedErrors ? 'text-red-600' : ''}"
+				>
+					Parametri avanzati
+				</summary>
 
 				<div class="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
 					<label class="block">
 						<span class="text-sm">Ore di lievitazione totali</span>
 						<input
 							type="number"
-							min="0"
+							min={limits.proofingHours.min}
+							max={limits.proofingHours.max}
 							step="1"
 							bind:value={values.proofingHours}
-							class="mt-1 w-full"
+							aria-invalid={Boolean(errors.proofingHours)}
+							class="mt-1 w-full {errors.proofingHours ? 'border-red-600' : ''}"
 						/>
+						{@render fieldError(errors.proofingHours)}
 					</label>
 
 					<label class="block">
 						<span class="text-sm">Ore di riposo in frigorifero (sul totale)</span>
 						<input
 							type="number"
-							min="0"
-							max={values.proofingHours}
+							min={limits.fridgeHours.min}
+							max={values.proofingHours - 1}
 							step="1"
 							bind:value={values.fridgeHours}
-							class="mt-1 w-full"
+							aria-invalid={Boolean(errors.fridgeHours)}
+							class="mt-1 w-full {errors.fridgeHours ? 'border-red-600' : ''}"
 						/>
+						{@render fieldError(errors.fridgeHours)}
 					</label>
 
 					<label class="block">
 						<span class="text-sm">Sale (grammi per litro)</span>
 						<input
 							type="number"
-							min="0"
+							min={limits.saltPerLiter.min}
+							max={limits.saltPerLiter.max}
 							step="1"
 							bind:value={values.saltPerLiter}
-							class="mt-1 w-full"
+							aria-invalid={Boolean(errors.saltPerLiter)}
+							class="mt-1 w-full {errors.saltPerLiter ? 'border-red-600' : ''}"
 						/>
+						{@render fieldError(errors.saltPerLiter)}
 					</label>
 
 					<label class="block">
 						<span class="text-sm">Olio (grammi per litro)</span>
 						<input
 							type="number"
-							min="0"
+							min={limits.oilPerLiter.min}
+							max={limits.oilPerLiter.max}
 							step="1"
 							bind:value={values.oilPerLiter}
-							class="mt-1 w-full"
+							aria-invalid={Boolean(errors.oilPerLiter)}
+							class="mt-1 w-full {errors.oilPerLiter ? 'border-red-600' : ''}"
 						/>
+						{@render fieldError(errors.oilPerLiter)}
 					</label>
 
 					<label class="block">
 						<span class="text-sm">Temperatura ambiente (°C)</span>
-						<input type="number" step="1" bind:value={values.roomTemperature} class="mt-1 w-full" />
+						<input
+							type="number"
+							min={limits.roomTemperature.min}
+							max={limits.roomTemperature.max}
+							step="1"
+							bind:value={values.roomTemperature}
+							aria-invalid={Boolean(errors.roomTemperature)}
+							class="mt-1 w-full {errors.roomTemperature ? 'border-red-600' : ''}"
+						/>
+						{@render fieldError(errors.roomTemperature)}
 					</label>
 
 					<fieldset>
@@ -417,6 +469,12 @@
 		</form>
 
 		<hr class="my-6" />
+
+		{#if hasErrors}
+			<p class="mb-4 rounded border border-red-600 bg-red-50 p-3 text-sm text-red-700" role="alert">
+				Alcuni parametri non sono validi, si prega di correggerli.
+			</p>
+		{/if}
 
 		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 			<p class="rounded border p-3 text-center">Farina: {results.flour} g</p>
