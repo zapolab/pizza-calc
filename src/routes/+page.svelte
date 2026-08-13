@@ -2,12 +2,19 @@
 	import { computeResults } from '$lib/dough';
 	import NumberField from '$lib/NumberField.svelte';
 	import SegmentedControl from '$lib/SegmentedControl.svelte';
-	import { cloneValues, defaultValues, limits, validateValues, type Preset } from '$lib/presets';
+	import {
+		cloneValues,
+		defaultValues,
+		limits,
+		validateValues,
+		type Preset,
+		type YeastKind
+	} from '$lib/presets';
 
-	const yeastKinds = [
+	const yeastKinds: { id: YeastKind; label: string }[] = [
 		{ id: 'dry', label: 'Secco' },
 		{ id: 'fresh', label: 'Fresco' }
-	] as const;
+	];
 
 	const panPizzaOptions = [
 		{ id: false, label: 'No' },
@@ -31,7 +38,6 @@
 	let sidebarOpen = $state(true);
 	let mobileSidebarOpen = $state(false);
 	let advancedOpen = $state(false);
-	let yeastKind = $state<(typeof yeastKinds)[number]['id']>('dry');
 	let renaming = $state(false);
 	let deleteDialog = $state<HTMLDialogElement | null>(null);
 
@@ -95,7 +101,7 @@
 
 	const results = $derived(computeResults(values));
 	const yeast = $derived(
-		yeastKind === 'dry'
+		values.yeastKind === 'dry'
 			? { label: 'Lievito di birra secco', amount: results.dryYeast }
 			: { label: 'Lievito di birra fresco', amount: results.wetYeast }
 	);
@@ -413,7 +419,11 @@
 
 					<div class="flex items-center justify-between gap-3">
 						<span class="text-sm">Lievito di birra</span>
-						<SegmentedControl label="Tipo di lievito" options={yeastKinds} bind:value={yeastKind} />
+						<SegmentedControl
+							label="Tipo di lievito"
+							options={yeastKinds}
+							bind:value={values.yeastKind}
+						/>
 					</div>
 				</div>
 			</details>

@@ -1,3 +1,5 @@
+export type YeastKind = 'dry' | 'fresh';
+
 export type PresetValues = {
 	doughBallCount: number;
 	doughBallWeight: number;
@@ -8,6 +10,7 @@ export type PresetValues = {
 	oilPerLiter: number;
 	roomTemperature: number;
 	panPizza: boolean;
+	yeastKind: YeastKind;
 };
 
 export type Preset = {
@@ -25,7 +28,8 @@ export const defaultValues: PresetValues = {
 	saltPerLiter: 50,
 	oilPerLiter: 0,
 	roomTemperature: 20,
-	panPizza: false
+	panPizza: false,
+	yeastKind: 'dry'
 };
 
 export function cloneValues(values: PresetValues): PresetValues {
@@ -64,7 +68,8 @@ export function clampValues(values: PresetValues): PresetValues {
 		saltPerLiter: clamp(values.saltPerLiter, limits.saltPerLiter),
 		oilPerLiter: clamp(values.oilPerLiter, limits.oilPerLiter),
 		roomTemperature: clamp(values.roomTemperature, limits.roomTemperature),
-		panPizza: values.panPizza
+		panPizza: values.panPizza,
+		yeastKind: values.yeastKind
 	};
 }
 
