@@ -10,12 +10,12 @@ export type Flour = {
 
 /** Catalog of selectable flours. In-memory placeholder for the future sqlite table. */
 export const flourTypes: FlourType[] = [
-	{ id: 'tipo-00', name: 'Farina Tipo 00' },
-	{ id: 'tipo-0', name: 'Farina Tipo 0' },
-	{ id: 'tipo-0S', name: 'Farina Tipo 0 Super' },
-	{ id: 'tipo-1', name: 'Farina Tipo 1' },
-	{ id: 'tipo-2', name: 'Farina Tipo 2' },
-	{ id: 'integrale', name: 'Farina integrale' },
+	{ id: 'tipo-00', name: 'Tipo 00' },
+	{ id: 'tipo-0', name: 'Tipo 0' },
+	{ id: 'tipo-0S', name: 'Tipo 0 Super' },
+	{ id: 'tipo-1', name: 'Tipo 1' },
+	{ id: 'tipo-2', name: 'Tipo 2' },
+	{ id: 'integrale', name: 'Integrale' },
 	{ id: 'manitoba', name: 'Manitoba' },
 	{ id: 'semola', name: 'Semola di grano duro rimacinata' }
 ];
