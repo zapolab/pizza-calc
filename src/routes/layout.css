@@ -2,6 +2,13 @@
 @plugin '@tailwindcss/forms';
 
 @layer base {
+	/* v4 defaults `border` to currentColor; containers get a hairline, controls override it. */
+	*,
+	::before,
+	::after {
+		border-color: rgb(0 0 0 / 0.15);
+	}
+
 	input:not([type='checkbox']):not([type='radio']),
 	select,
 	textarea {
