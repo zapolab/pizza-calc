@@ -3,6 +3,8 @@
 	import NumberField from '$lib/NumberField.svelte';
 	import SegmentedControl from '$lib/SegmentedControl.svelte';
 	import { flourTypeName, flourTypes, nextFlourTypeId } from '$lib/flours';
+	import { themeChoices } from '$lib/theme';
+	import { theme } from '$lib/theme.svelte';
 	import {
 		cloneValues,
 		defaultValues,
@@ -142,7 +144,7 @@
 	{/if}
 
 	<aside
-		class="fixed inset-y-0 left-0 z-40 w-56 shrink-0 overflow-y-auto border-r bg-white transition-transform
+		class="fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col overflow-y-auto border-r bg-surface transition-transform
 			sm:static sm:translate-x-0 sm:bg-transparent sm:transition-none
 			{mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
 			{sidebarOpen ? 'sm:w-56' : 'sm:w-12'}"
@@ -152,7 +154,7 @@
 
 			<button
 				type="button"
-				class="rounded p-1 hover:bg-black/5 sm:hidden"
+				class="rounded p-1 hover:bg-ink/5 sm:hidden"
 				aria-label="Chiudi barra laterale"
 				onclick={() => (mobileSidebarOpen = false)}
 			>
@@ -172,7 +174,7 @@
 
 			<button
 				type="button"
-				class="rounded p-1 hover:bg-black/5 max-sm:hidden"
+				class="rounded p-1 hover:bg-ink/5 max-sm:hidden"
 				aria-label={sidebarOpen ? 'Comprimi barra laterale' : 'Espandi barra laterale'}
 				title={sidebarOpen ? 'Comprimi' : 'Espandi'}
 				onclick={() => (sidebarOpen = !sidebarOpen)}
@@ -192,14 +194,20 @@
 			</button>
 		</div>
 
-		<div class={sidebarOpen ? '' : 'hidden max-sm:block'}>
+		<!-- `hidden` and `flex` are both base utilities, so the collapsed branch reaches
+			 display through the `max-sm:` variant, which Tailwind emits later. -->
+		<div
+			class={sidebarOpen
+				? 'flex min-h-0 flex-1 flex-col'
+				: 'hidden min-h-0 flex-1 flex-col max-sm:flex'}
+		>
 			<ul class="px-2">
 				{#each presets as preset (preset.id)}
 					<li>
 						<button
 							type="button"
-							class="w-full truncate rounded px-2 py-1.5 text-left text-sm hover:bg-black/5
-								{preset.id === selectedId ? 'bg-black/10 font-medium' : ''}"
+							class="w-full truncate rounded px-2 py-1.5 text-left text-sm hover:bg-ink/5
+								{preset.id === selectedId ? 'bg-ink/10 font-medium' : ''}"
 							onclick={() => selectPreset(preset)}
 						>
 							{preset.name}
@@ -211,7 +219,7 @@
 			<div class="p-2">
 				<button
 					type="button"
-					class="flex w-full items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-black/5"
+					class="flex w-full items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-ink/5"
 					onclick={createPreset}
 				>
 					<svg
@@ -228,6 +236,15 @@
 					Nuovo preset
 				</button>
 			</div>
+
+			<hr class="mx-2 mt-auto" />
+
+			<div class="p-2">
+				<span class="text-sm">Tema</span>
+				<div class="mt-2 mb-1">
+					<SegmentedControl fill label="Tema" options={themeChoices} bind:value={theme.choice} />
+				</div>
+			</div>
 		</div>
 	</aside>
 
@@ -235,7 +252,7 @@
 		<div class="mb-4 flex items-center gap-2 border-b pb-2">
 			<button
 				type="button"
-				class="rounded p-1.5 hover:bg-black/5 sm:hidden"
+				class="rounded p-1.5 hover:bg-ink/5 sm:hidden"
 				aria-label="Apri barra laterale"
 				onclick={() => (mobileSidebarOpen = true)}
 			>
@@ -271,7 +288,7 @@
 
 			<button
 				type="button"
-				class="rounded p-1.5 hover:bg-black/5 disabled:opacity-40"
+				class="rounded p-1.5 hover:bg-ink/5 disabled:opacity-40"
 				aria-label="Rinomina preset"
 				title="Rinomina"
 				disabled={!selectedPreset}
@@ -294,7 +311,7 @@
 
 			<button
 				type="button"
-				class="rounded p-1.5 hover:bg-black/5 disabled:opacity-40"
+				class="rounded p-1.5 hover:bg-ink/5 disabled:opacity-40"
 				aria-label="Elimina preset"
 				title="Elimina preset"
 				disabled={!selectedPreset}
@@ -319,7 +336,7 @@
 
 		<dialog
 			bind:this={deleteDialog}
-			class="m-auto max-w-sm rounded-lg border bg-white p-4 backdrop:bg-black/40"
+			class="m-auto max-w-sm rounded-lg border bg-surface p-4 text-ink backdrop:bg-black/40"
 		>
 			<h3 class="text-lg font-semibold">Eliminare il preset?</h3>
 			<p class="mt-2 text-sm">
@@ -328,14 +345,15 @@
 			<div class="mt-4 flex justify-end gap-2">
 				<button
 					type="button"
-					class="rounded border px-3 py-1.5 text-sm hover:bg-black/5"
+					class="rounded border px-3 py-1.5 text-sm hover:bg-ink/5"
 					onclick={() => deleteDialog?.close()}
 				>
 					Annulla
 				</button>
 				<button
 					type="button"
-					class="rounded border border-red-600 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+					class="rounded border border-red-600 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50
+						dark:border-red-500 dark:text-red-400 dark:hover:bg-red-950"
 					onclick={deletePreset}
 				>
 					Elimina
@@ -374,10 +392,14 @@
 
 			<details
 				bind:open={advancedOpen}
-				class="mt-6 rounded-lg border p-4 {hasAdvancedErrors ? 'border-red-600' : ''}"
+				class="mt-6 rounded-lg border p-4 {hasAdvancedErrors
+					? 'border-red-600 dark:border-red-500'
+					: ''}"
 			>
 				<summary
-					class="cursor-pointer text-sm select-none {hasAdvancedErrors ? 'text-red-600' : ''}"
+					class="cursor-pointer text-sm select-none {hasAdvancedErrors
+						? 'text-red-600 dark:text-red-400'
+						: ''}"
 				>
 					Parametri avanzati
 				</summary>
@@ -392,7 +414,7 @@
 								<select
 									id="flour-{i}"
 									bind:value={flour.flourTypeId}
-									class="mt-1 w-full rounded-md border-black/25"
+									class="mt-1 w-full rounded-md border-ink/25"
 								>
 									{#each flourTypes as flourType (flourType.id)}
 										<option value={flourType.id}>{flourType.name}</option>
@@ -415,7 +437,7 @@
 								{#if values.flours.length > 1}
 									<button
 										type="button"
-										class="mt-7 flex h-10.5 w-10 items-center justify-center rounded p-1.5 hover:bg-black/5"
+										class="mt-7 flex h-10.5 w-10 items-center justify-center rounded p-1.5 hover:bg-ink/5"
 										aria-label="Rimuovi farina {i + 1}"
 										title="Rimuovi"
 										onclick={() => removeFlour(i)}
@@ -440,12 +462,12 @@
 				</div>
 
 				{#if errors.flours}
-					<p class="mt-2 text-sm text-red-700">{errors.flours}</p>
+					<p class="mt-2 text-sm text-red-700 dark:text-red-400">{errors.flours}</p>
 				{/if}
 
 				<button
 					type="button"
-					class="mt-3 flex items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-black/5 disabled:opacity-40"
+					class="mt-3 flex items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-ink/5 disabled:opacity-40"
 					disabled={values.flours.length >= MAX_FLOURS}
 					onclick={addFlour}
 				>
@@ -540,7 +562,8 @@
 
 		{#if hasErrors}
 			<p
-				class="mb-4 rounded-lg border border-red-600 bg-red-50 p-3 text-sm text-red-700"
+				class="mb-4 rounded-lg border border-red-600 bg-red-50 p-3 text-sm text-red-700
+					dark:border-red-500 dark:bg-red-950 dark:text-red-300"
 				role="alert"
 			>
 				Alcuni parametri non sono validi, si prega di correggerli.
@@ -553,20 +576,20 @@
 					<div class="flex items-baseline gap-2">
 						<span class="truncate">
 							Farina
-							{#if singleFlourName}<span class="text-black/50">{singleFlourName}</span>{/if}
+							{#if singleFlourName}<span class="text-ink/50">{singleFlourName}</span>{/if}
 						</span>
-						<span class="min-w-4 flex-1 border-b border-dotted border-black/25"></span>
+						<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
 						<span class="text-lg font-semibold tabular-nums">{results.flour} g</span>
 					</div>
 
 					{#if results.flours.length > 1}
-						<ul class="mt-2 space-y-1 pl-4 text-sm text-black/60">
+						<ul class="mt-2 space-y-1 pl-4 text-sm text-ink/60">
 							{#each results.flours as flour, i (i)}
 								<li class="flex items-baseline gap-2">
 									<span class="truncate">{flourTypeName(flour.flourTypeId, i)}</span>
-									<span class="min-w-4 flex-1 border-b border-dotted border-black/15"></span>
+									<span class="min-w-4 flex-1 border-b border-dotted border-ink/15"></span>
 									<span class="w-10 text-right tabular-nums">{flour.percent}%</span>
-									<span class="w-14 text-right font-medium text-black/80 tabular-nums">
+									<span class="w-14 text-right font-medium text-ink/80 tabular-nums">
 										{flour.weight} g
 									</span>
 								</li>
@@ -576,29 +599,29 @@
 				</li>
 				<li class="flex items-baseline gap-2">
 					<span>Acqua</span>
-					<span class="min-w-4 flex-1 border-b border-dotted border-black/25"></span>
+					<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
 					<span class="text-lg font-semibold tabular-nums">{results.water} g</span>
 				</li>
 				<li class="flex items-baseline gap-2">
 					<span>Sale</span>
-					<span class="min-w-4 flex-1 border-b border-dotted border-black/25"></span>
+					<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
 					<span class="text-lg font-semibold tabular-nums">{results.salt} g</span>
 				</li>
 				<li class="flex items-baseline gap-2">
 					<span>Olio</span>
-					<span class="min-w-4 flex-1 border-b border-dotted border-black/25"></span>
+					<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
 					<span class="text-lg font-semibold tabular-nums">{results.oil} g</span>
 				</li>
 				<li class="flex items-baseline gap-2">
 					<span>{yeast.label}</span>
-					<span class="min-w-4 flex-1 border-b border-dotted border-black/25"></span>
+					<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
 					<span class="text-lg font-semibold tabular-nums">{yeast.amount} g</span>
 				</li>
 			</ul>
 
 			<div class="mt-3 flex items-baseline gap-2 border-t pt-3">
 				<span class="font-medium">Peso totale impasto</span>
-				<span class="min-w-4 flex-1 border-b border-dotted border-black/25"></span>
+				<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
 				<span class="text-xl font-bold tabular-nums">{results.totalWeight} g</span>
 			</div>
 		</div>

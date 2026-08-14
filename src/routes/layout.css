@@ -1,18 +1,48 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* `inline` is required: the tokens point at vars that change per theme. */
+@theme inline {
+	--color-ink: var(--ink);
+	--color-surface: var(--surface);
+	--color-raised: var(--raised);
+}
+
+:root {
+	--ink: #000000;
+	--surface: #ffffff;
+	--raised: #ffffff;
+	color-scheme: light;
+}
+
+:root.dark {
+	--ink: #f4f4f5;
+	--surface: #18181b;
+	--raised: #27272a;
+	color-scheme: dark;
+}
+
 @layer base {
+	body {
+		background-color: var(--surface);
+		color: var(--ink);
+	}
+
 	/* v4 defaults `border` to currentColor; containers get a hairline, controls override it. */
 	*,
 	::before,
 	::after {
-		border-color: rgb(0 0 0 / 0.15);
+		border-color: color-mix(in oklab, var(--ink) 15%, transparent);
 	}
 
-	input:not([type='checkbox']):not([type='radio']),
-	select,
-	textarea {
+	/* `:is()` lifts every branch to the specificity of the first, which the forms
+	   plugin's later `textarea, select` rule would otherwise tie and win. */
+	:is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
 		border-radius: var(--radius-md);
+		background-color: var(--surface);
+		color: var(--ink);
 	}
 
 	input[type='number'] {
