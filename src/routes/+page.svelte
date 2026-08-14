@@ -2,10 +2,12 @@
 	import { computeResults } from '$lib/dough';
 	import NumberField from '$lib/NumberField.svelte';
 	import SegmentedControl from '$lib/SegmentedControl.svelte';
+	import { flourTypes, nextFlourTypeId } from '$lib/flours';
 	import {
 		cloneValues,
 		defaultValues,
 		limits,
+		MAX_FLOURS,
 		validateValues,
 		type Preset,
 		type YeastKind
@@ -27,7 +29,12 @@
 		{
 			id: 2,
 			name: 'Teglia romana',
-			values: { ...defaultValues, doughBallWeight: 700, hydration: 80, panPizza: true }
+			values: {
+				...cloneValues(defaultValues),
+				doughBallWeight: 700,
+				hydration: 80,
+				panPizza: true
+			}
 		}
 	]);
 	let nextId = $state(3);
@@ -49,7 +56,9 @@
 			errors.fridgeHours ||
 			errors.saltPerLiter ||
 			errors.oilPerLiter ||
-			errors.roomTemperature
+			errors.roomTemperature ||
+			errors.flours ||
+			errors.flourPercents
 		)
 	);
 
@@ -92,6 +101,15 @@
 		if (next) values = cloneValues(next.values);
 		renaming = false;
 		deleteDialog?.close();
+	}
+
+	function addFlour() {
+		const used = values.flours.map((flour) => flour.flourTypeId);
+		values.flours.push({ flourTypeId: nextFlourTypeId(used), percent: 0 });
+	}
+
+	function removeFlour(index: number) {
+		values.flours.splice(index, 1);
 	}
 
 	function autofocus(node: HTMLInputElement) {
@@ -358,7 +376,90 @@
 					Parametri avanzati
 				</summary>
 
-				<div class="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
+				<div class="mt-4 space-y-3">
+					{#each values.flours as flour, i (i)}
+						<div class="flex flex-col gap-2 sm:flex-row sm:items-start">
+							<div class="min-w-0 flex-1">
+								<label for="flour-{i}" class="text-sm">
+									{values.flours.length > 1 ? `Farina ${i + 1}` : 'Farina'}
+								</label>
+								<select
+									id="flour-{i}"
+									bind:value={flour.flourTypeId}
+									class="mt-1 w-full rounded-md border-black/25"
+								>
+									{#each flourTypes as flourType (flourType.id)}
+										<option value={flourType.id}>{flourType.name}</option>
+									{/each}
+								</select>
+							</div>
+
+							<div class="flex items-center gap-2 sm:contents">
+								<div class="min-w-0 flex-1 sm:w-44 sm:flex-none">
+									<NumberField
+										label="Percentuale"
+										unit="%"
+										min={limits.flourPercent.min}
+										max={limits.flourPercent.max}
+										bind:value={flour.percent}
+										error={errors.flourPercents?.[i]}
+									/>
+								</div>
+
+								{#if values.flours.length > 1}
+									<button
+										type="button"
+										class="mt-7 flex h-10.5 w-10 items-center justify-center rounded p-1.5 hover:bg-black/5"
+										aria-label="Rimuovi farina {i + 1}"
+										title="Rimuovi"
+										onclick={() => removeFlour(i)}
+									>
+										<svg
+											class="size-5"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											aria-hidden="true"
+										>
+											<path d="M18 6L6 18M6 6l12 12" />
+										</svg>
+									</button>
+								{/if}
+							</div>
+						</div>
+					{/each}
+				</div>
+
+				{#if errors.flours}
+					<p class="mt-2 text-sm text-red-700">{errors.flours}</p>
+				{/if}
+
+				<button
+					type="button"
+					class="mt-3 flex items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-black/5 disabled:opacity-40"
+					disabled={values.flours.length >= MAX_FLOURS}
+					onclick={addFlour}
+				>
+					<svg
+						class="size-4"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						aria-hidden="true"
+					>
+						<path d="M12 5v14M5 12h14" />
+					</svg>
+					Aggiungi farina
+				</button>
+
+				<hr class="my-4 border-black/15" />
+
+				<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
 					<NumberField
 						label="Lievitazione totale"
 						unit="h"
@@ -480,7 +581,7 @@
 			<textarea
 				id="notes"
 				rows="4"
-				placeholder="Farina usata, tecnica di impasto, come è venuta…"
+				placeholder="Tecnica di impasto, cottura, come è venuta…"
 				bind:value={values.notes}
 				class="mt-1 w-full resize-y rounded-md"></textarea>
 		</div>
