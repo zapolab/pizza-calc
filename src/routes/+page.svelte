@@ -2,7 +2,7 @@
 	import { computeResults } from '$lib/dough';
 	import NumberField from '$lib/NumberField.svelte';
 	import SegmentedControl from '$lib/SegmentedControl.svelte';
-	import { flourTypes, nextFlourTypeId } from '$lib/flours';
+	import { flourTypeName, flourTypes, nextFlourTypeId } from '$lib/flours';
 	import {
 		cloneValues,
 		defaultValues,
@@ -118,6 +118,12 @@
 	}
 
 	const results = $derived(computeResults(values));
+	// With one flour the split is not listed, so its grade rides on the `Farina` row instead.
+	const singleFlourName = $derived(
+		results.flours.length === 1
+			? flourTypes.find((type) => type.id === results.flours[0].flourTypeId)?.name
+			: undefined
+	);
 	const yeast = $derived(
 		values.yeastKind === 'dry'
 			? { label: 'Lievito di birra secco', amount: results.dryYeast }
@@ -313,7 +319,7 @@
 
 		<dialog
 			bind:this={deleteDialog}
-			class="m-auto max-w-sm rounded border bg-white p-4 backdrop:bg-black/40"
+			class="m-auto max-w-sm rounded-lg border bg-white p-4 backdrop:bg-black/40"
 		>
 			<h3 class="text-lg font-semibold">Eliminare il preset?</h3>
 			<p class="mt-2 text-sm">
@@ -457,7 +463,7 @@
 					Aggiungi farina
 				</button>
 
-				<hr class="my-4 border-black/15" />
+				<hr class="my-4" />
 
 				<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
 					<NumberField
@@ -506,7 +512,7 @@
 					/>
 				</div>
 
-				<hr class="my-4 border-black/15" />
+				<hr class="my-4" />
 
 				<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
 					<div class="flex items-center justify-between gap-3">
@@ -533,17 +539,40 @@
 		<hr class="my-6" />
 
 		{#if hasErrors}
-			<p class="mb-4 rounded border border-red-600 bg-red-50 p-3 text-sm text-red-700" role="alert">
+			<p
+				class="mb-4 rounded-lg border border-red-600 bg-red-50 p-3 text-sm text-red-700"
+				role="alert"
+			>
 				Alcuni parametri non sono validi, si prega di correggerli.
 			</p>
 		{/if}
 
 		<div class="rounded-lg border p-4">
 			<ul class="space-y-3">
-				<li class="flex items-baseline gap-2">
-					<span>Farina</span>
-					<span class="min-w-4 flex-1 border-b border-dotted border-black/25"></span>
-					<span class="text-lg font-semibold tabular-nums">{results.flour} g</span>
+				<li>
+					<div class="flex items-baseline gap-2">
+						<span class="truncate">
+							Farina
+							{#if singleFlourName}<span class="text-black/50">{singleFlourName}</span>{/if}
+						</span>
+						<span class="min-w-4 flex-1 border-b border-dotted border-black/25"></span>
+						<span class="text-lg font-semibold tabular-nums">{results.flour} g</span>
+					</div>
+
+					{#if results.flours.length > 1}
+						<ul class="mt-2 space-y-1 pl-4 text-sm text-black/60">
+							{#each results.flours as flour, i (i)}
+								<li class="flex items-baseline gap-2">
+									<span class="truncate">{flourTypeName(flour.flourTypeId, i)}</span>
+									<span class="min-w-4 flex-1 border-b border-dotted border-black/15"></span>
+									<span class="w-10 text-right tabular-nums">{flour.percent}%</span>
+									<span class="w-14 text-right font-medium text-black/80 tabular-nums">
+										{flour.weight} g
+									</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
 				</li>
 				<li class="flex items-baseline gap-2">
 					<span>Acqua</span>
