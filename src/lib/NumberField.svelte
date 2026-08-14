@@ -24,12 +24,12 @@
 	<label for={id} class="text-sm">{label}</label>
 
 	<div
-		class="mt-1 flex items-stretch overflow-hidden rounded-md border focus-within:border-black/60
-			{invalid ? 'border-red-600' : 'border-black/25'}"
+		class="mt-1 flex items-stretch overflow-hidden rounded-md border focus-within:border-ink/60
+			{invalid ? 'border-red-600 dark:border-red-500' : 'border-ink/25'}"
 	>
 		<button
 			type="button"
-			class="px-3 text-lg leading-none select-none hover:bg-black/5 disabled:opacity-30"
+			class="px-3 text-lg leading-none select-none hover:bg-ink/5 disabled:opacity-30"
 			aria-label="Diminuisci: {label}"
 			disabled={value <= min}
 			onclick={() => nudge(-step)}
@@ -51,7 +51,7 @@
 					: 'pr-3'}"
 			/>
 			{#if unit}
-				<span class="shrink-0 pr-3 pl-1 text-sm whitespace-nowrap text-black/50" aria-hidden="true">
+				<span class="shrink-0 pr-3 pl-1 text-sm whitespace-nowrap text-ink/50" aria-hidden="true">
 					{unit}
 				</span>
 			{/if}
@@ -59,7 +59,7 @@
 
 		<button
 			type="button"
-			class="px-3 text-lg leading-none select-none hover:bg-black/5 disabled:opacity-30"
+			class="px-3 text-lg leading-none select-none hover:bg-ink/5 disabled:opacity-30"
 			aria-label="Aumenta: {label}"
 			disabled={value >= max}
 			onclick={() => nudge(step)}
@@ -69,6 +69,6 @@
 	</div>
 
 	{#if error}
-		<p class="mt-1 text-sm text-red-700">{error}</p>
+		<p class="mt-1 text-sm text-red-700 dark:text-red-400">{error}</p>
 	{/if}
 </div>
