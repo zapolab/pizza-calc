@@ -98,7 +98,7 @@ describe('validateValues', () => {
 
 describe('flourTypeName', () => {
 	it('resolves a catalog id', () => {
-		expect(flourTypeName('tipo-00')).toBe('Farina Tipo 00');
+		expect(flourTypeName('tipo-00')).toBe('Tipo 00');
 	});
 
 	it('falls back to a positional label for an unknown id', () => {
