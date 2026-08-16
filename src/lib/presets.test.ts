@@ -18,25 +18,25 @@ describe('cloneValues', () => {
 describe('clampValues', () => {
 	it('clamps every percentage into range', () => {
 		const values = withFlours([
-			{ flourTypeId: 'tipo-00', percent: -20 },
-			{ flourTypeId: 'integrale', percent: 180 }
+			{ flourTypeId: 1, percent: -20 },
+			{ flourTypeId: 6, percent: 180 }
 		]);
 
 		expect(clampValues(values).flours).toEqual([
-			{ flourTypeId: 'tipo-00', percent: 0 },
-			{ flourTypeId: 'integrale', percent: 100 }
+			{ flourTypeId: 1, percent: 0 },
+			{ flourTypeId: 6, percent: 100 }
 		]);
 	});
 
 	it('maps an emptied field onto zero', () => {
-		const values = withFlours([{ flourTypeId: 'tipo-00', percent: Number.NaN }]);
+		const values = withFlours([{ flourTypeId: 1, percent: Number.NaN }]);
 
 		expect(clampValues(values).flours[0].percent).toBe(0);
 	});
 
 	it('keeps at most MAX_FLOURS entries and at least one', () => {
 		const many = Array.from({ length: 5 }, (_, i) => ({
-			flourTypeId: `f${i}`,
+			flourTypeId: i + 1,
 			percent: 20
 		}));
 
@@ -53,20 +53,20 @@ describe('validateValues', () => {
 	it('reports a total that is not 100%', () => {
 		const errors = validateValues(
 			withFlours([
-				{ flourTypeId: 'tipo-00', percent: 70 },
-				{ flourTypeId: 'integrale', percent: 20 }
+				{ flourTypeId: 1, percent: 70 },
+				{ flourTypeId: 6, percent: 20 }
 			])
 		);
 
 		expect(errors.flours).toBe('La somma delle percentuali deve essere 100%');
 	});
 
-	it('tolerates floating point noise around 100%', () => {
+	it('accepts three flours summing to 100%', () => {
 		const errors = validateValues(
 			withFlours([
-				{ flourTypeId: 'tipo-00', percent: 33.3 },
-				{ flourTypeId: 'integrale', percent: 33.3 },
-				{ flourTypeId: 'manitoba', percent: 33.4 }
+				{ flourTypeId: 1, percent: 33 },
+				{ flourTypeId: 6, percent: 33 },
+				{ flourTypeId: 7, percent: 34 }
 			])
 		);
 
@@ -76,8 +76,8 @@ describe('validateValues', () => {
 	it('flags the empty row, not just the total', () => {
 		const errors = validateValues(
 			withFlours([
-				{ flourTypeId: 'tipo-00', percent: 100 },
-				{ flourTypeId: 'integrale', percent: Number.NaN }
+				{ flourTypeId: 1, percent: 100 },
+				{ flourTypeId: 6, percent: Number.NaN }
 			])
 		);
 
@@ -87,8 +87,8 @@ describe('validateValues', () => {
 	it('reports a flour type picked twice', () => {
 		const errors = validateValues(
 			withFlours([
-				{ flourTypeId: 'tipo-00', percent: 50 },
-				{ flourTypeId: 'tipo-00', percent: 50 }
+				{ flourTypeId: 1, percent: 50 },
+				{ flourTypeId: 1, percent: 50 }
 			])
 		);
 
@@ -98,17 +98,17 @@ describe('validateValues', () => {
 
 describe('flourTypeName', () => {
 	it('resolves a catalog id', () => {
-		expect(flourTypeName('tipo-00')).toBe('Tipo 00');
+		expect(flourTypeName(1)).toBe('Tipo 00');
 	});
 
 	it('falls back to a positional label for an unknown id', () => {
-		expect(flourTypeName('gone', 0)).toBe('Farina');
-		expect(flourTypeName('gone', 1)).toBe('Farina 2');
+		expect(flourTypeName(99, 0)).toBe('Farina');
+		expect(flourTypeName(99, 1)).toBe('Farina 2');
 	});
 });
 
 describe('nextFlourTypeId', () => {
 	it('skips the ids already picked', () => {
-		expect(nextFlourTypeId(['tipo-00'])).toBe('tipo-0');
+		expect(nextFlourTypeId([1])).toBe(2);
 	});
 });

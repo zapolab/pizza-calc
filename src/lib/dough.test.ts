@@ -27,14 +27,14 @@ describe('computeResults', () => {
 		const results = computeResults({
 			...defaultValues,
 			flours: [
-				{ flourTypeId: 'tipo-00', percent: 70 },
-				{ flourTypeId: 'manitoba', percent: 30 }
+				{ flourTypeId: 1, percent: 70 },
+				{ flourTypeId: 7, percent: 30 }
 			]
 		});
 
 		expect(results.flours).toEqual([
-			{ flourTypeId: 'tipo-00', percent: 70, weight: 83 },
-			{ flourTypeId: 'manitoba', percent: 30, weight: 36 }
+			{ flourTypeId: 1, percent: 70, weight: 83 },
+			{ flourTypeId: 7, percent: 30, weight: 36 }
 		]);
 		expect(results.flours[0].weight + results.flours[1].weight).toBe(results.flour);
 	});
@@ -43,9 +43,9 @@ describe('computeResults', () => {
 		const results = computeResults({
 			...defaultValues,
 			flours: [
-				{ flourTypeId: 'tipo-00', percent: 34 },
-				{ flourTypeId: 'tipo-0', percent: 33 },
-				{ flourTypeId: 'tipo-1', percent: 33 }
+				{ flourTypeId: 1, percent: 34 },
+				{ flourTypeId: 2, percent: 33 },
+				{ flourTypeId: 4, percent: 33 }
 			]
 		});
 
