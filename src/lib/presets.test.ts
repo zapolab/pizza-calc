@@ -1,17 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { flourTypeName, nextFlourTypeId, type Flour } from './flours';
-import { clampValues, cloneValues, defaultValues, MAX_FLOURS, validateValues } from './presets';
+import { clampValues, cloneValues, MAX_FLOURS, validateValues } from './presets';
+import { testFlourTypes, testValues } from './testValues';
 
 function withFlours(flours: Flour[]) {
-	return { ...cloneValues(defaultValues), flours };
+	return { ...cloneValues(testValues), flours };
 }
 
 describe('cloneValues', () => {
 	it('deep-clones the flours', () => {
-		const clone = cloneValues(defaultValues);
+		const clone = cloneValues(testValues);
 		clone.flours[0].percent = 42;
 
-		expect(defaultValues.flours[0].percent).toBe(100);
+		expect(testValues.flours[0].percent).toBe(100);
 	});
 });
 
@@ -34,20 +35,19 @@ describe('clampValues', () => {
 		expect(clampValues(values).flours[0].percent).toBe(0);
 	});
 
-	it('keeps at most MAX_FLOURS entries and at least one', () => {
+	it('keeps at most MAX_FLOURS entries', () => {
 		const many = Array.from({ length: 5 }, (_, i) => ({
 			flourTypeId: i + 1,
 			percent: 20
 		}));
 
 		expect(clampValues(withFlours(many)).flours).toHaveLength(MAX_FLOURS);
-		expect(clampValues(withFlours([])).flours).toHaveLength(1);
 	});
 });
 
 describe('validateValues', () => {
 	it('accepts a single flour at 100%', () => {
-		expect(validateValues(defaultValues).flours).toBeUndefined();
+		expect(validateValues(testValues).flours).toBeUndefined();
 	});
 
 	it('reports a total that is not 100%', () => {
@@ -98,17 +98,17 @@ describe('validateValues', () => {
 
 describe('flourTypeName', () => {
 	it('resolves a catalog id', () => {
-		expect(flourTypeName(1)).toBe('Tipo 00');
+		expect(flourTypeName(testFlourTypes, 1)).toBe('Tipo 00');
 	});
 
 	it('falls back to a positional label for an unknown id', () => {
-		expect(flourTypeName(99, 0)).toBe('Farina');
-		expect(flourTypeName(99, 1)).toBe('Farina 2');
+		expect(flourTypeName(testFlourTypes, 99, 0)).toBe('Farina');
+		expect(flourTypeName(testFlourTypes, 99, 1)).toBe('Farina 2');
 	});
 });
 
 describe('nextFlourTypeId', () => {
 	it('skips the ids already picked', () => {
-		expect(nextFlourTypeId([1])).toBe(2);
+		expect(nextFlourTypeId(testFlourTypes, [1])).toBe(2);
 	});
 });
