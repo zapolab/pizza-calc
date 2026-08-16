@@ -1,19 +1,27 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
+	import { deserialize } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import { computeResults } from '$lib/dough';
 	import NumberField from '$lib/NumberField.svelte';
 	import SegmentedControl from '$lib/SegmentedControl.svelte';
-	import { flourTypeName, flourTypes, nextFlourTypeId } from '$lib/flours';
+	import { flourTypeName, nextFlourTypeId } from '$lib/flours';
 	import { themeChoices } from '$lib/theme';
 	import { theme } from '$lib/theme.svelte';
 	import {
 		cloneValues,
-		defaultValues,
 		limits,
 		MAX_FLOURS,
 		validateValues,
 		type Preset,
+		type PresetValues,
 		type YeastKind
 	} from '$lib/presets';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
+
+	const SAVE_DELAY = 500;
 
 	const yeastKinds: { id: YeastKind; label: string }[] = [
 		{ id: 'dry', label: 'Secco' },
@@ -25,29 +33,17 @@
 		{ id: true, label: 'Sì' }
 	];
 
-	// Placeholder until the sqlite backend is in place.
-	let presets = $state<Preset[]>([
-		{ id: 1, name: 'Napoletana', values: cloneValues(defaultValues) },
-		{
-			id: 2,
-			name: 'Teglia romana',
-			values: {
-				...cloneValues(defaultValues),
-				doughBallWeight: 700,
-				hydration: 80,
-				panPizza: true
-			}
-		}
-	]);
-	let nextId = $state(3);
+	const presets = $derived(data.presets);
+	const flourTypes = $derived(data.flourTypes);
 
-	let selectedId = $state<number | null>(1);
-	let values = $state(cloneValues(presets[0].values));
+	let selectedId = $state<number | null>(untrack(() => data.presets[0]?.id ?? null));
+	let values = $state(cloneValues(untrack(() => data.presets[0]?.values ?? data.defaultValues)));
 
 	let sidebarOpen = $state(true);
 	let mobileSidebarOpen = $state(false);
 	let advancedOpen = $state(false);
 	let renaming = $state(false);
+	let renameValue = $state('');
 	let deleteDialog = $state<HTMLDialogElement | null>(null);
 
 	const errors = $derived(validateValues(values));
@@ -71,43 +67,135 @@
 
 	const selectedPreset = $derived(presets.find((p) => p.id === selectedId) ?? null);
 
+	let pendingSave: { id: number; values: PresetValues } | null = null;
+	let saveTimer: ReturnType<typeof setTimeout> | undefined;
+	let lastSaved = untrack(() => stamp(selectedId, values));
+
+	function stamp(id: number | null, snapshot: PresetValues) {
+		return `${id}:${JSON.stringify(snapshot)}`;
+	}
+
+	async function post(action: string, body: FormData) {
+		const response = await fetch(`?/${action}`, {
+			method: 'POST',
+			body,
+			keepalive: true,
+			headers: { 'x-sveltekit-action': 'true' }
+		});
+		return deserialize(await response.text());
+	}
+
+	function flushSave() {
+		clearTimeout(saveTimer);
+		if (!pendingSave) return;
+
+		const body = new FormData();
+		body.set('id', String(pendingSave.id));
+		body.set('values', JSON.stringify(pendingSave.values));
+		pendingSave = null;
+		void post('save', body);
+	}
+
+	function cancelSave() {
+		clearTimeout(saveTimer);
+		pendingSave = null;
+	}
+
+	// Autosave
+	$effect(() => {
+		const snapshot = cloneValues(values);
+		if (selectedId === null) return;
+
+		const current = stamp(selectedId, snapshot);
+		if (current === lastSaved) return;
+		lastSaved = current;
+
+		pendingSave = { id: selectedId, values: snapshot };
+		clearTimeout(saveTimer);
+		saveTimer = setTimeout(flushSave, SAVE_DELAY);
+	});
+
+	$effect(() => {
+		const flushOnHide = () => {
+			if (document.visibilityState === 'hidden') flushSave();
+		};
+
+		document.addEventListener('visibilitychange', flushOnHide);
+		return () => document.removeEventListener('visibilitychange', flushOnHide);
+	});
+
+	function loadPreset(id: number | null, next: PresetValues) {
+		selectedId = id;
+		values = cloneValues(next);
+		lastSaved = stamp(id, values);
+	}
+
 	function selectPreset(preset: Preset) {
-		selectedId = preset.id;
-		values = cloneValues(preset.values);
+		flushSave();
+		loadPreset(preset.id, preset.values);
 		renaming = false;
 		mobileSidebarOpen = false;
 	}
 
-	function createPreset() {
-		const preset: Preset = { id: nextId++, name: 'Nuovo preset', values: cloneValues(values) };
-		presets.push(preset);
-		selectedId = preset.id;
+	async function createPreset() {
+		flushSave();
+
+		const body = new FormData();
+		body.set('name', 'Nuovo preset');
+		body.set('values', JSON.stringify(cloneValues(values)));
+
+		const result = await post('create', body);
+		if (result.type !== 'success') return;
+
+		await invalidateAll();
+		const id = (result.data as { id?: number } | undefined)?.id;
+		if (id !== undefined) loadPreset(id, values);
+
+		renameValue = 'Nuovo preset';
 		renaming = true;
 		mobileSidebarOpen = false;
 	}
 
-	function savePreset() {
-		const snapshot = cloneValues(values);
-		if (selectedPreset) selectedPreset.values = snapshot;
+	function startRename() {
+		renameValue = selectedPreset?.name ?? '';
+		renaming = true;
 	}
 
-	// Autosave: every field change lands in the selected preset.
-	$effect(savePreset);
-
-	function deletePreset() {
-		const i = presets.findIndex((p) => p.id === selectedId);
-		if (i === -1) return;
-		presets.splice(i, 1);
-		const next = presets[i] ?? presets[i - 1] ?? null;
-		selectedId = next?.id ?? null;
-		if (next) values = cloneValues(next.values);
+	async function commitRename() {
 		renaming = false;
+		const name = renameValue.trim();
+		if (selectedId === null || !name || name === selectedPreset?.name) return;
+
+		const body = new FormData();
+		body.set('id', String(selectedId));
+		body.set('name', name);
+
+		const result = await post('rename', body);
+		if (result.type === 'success') await invalidateAll();
+	}
+
+	async function deletePreset() {
+		const id = selectedId;
+		if (id === null) return;
+		cancelSave();
+
+		const body = new FormData();
+		body.set('id', String(id));
+		const result = await post('delete', body);
 		deleteDialog?.close();
+		if (result.type !== 'success') return;
+
+		const i = presets.findIndex((preset) => preset.id === id);
+		await invalidateAll();
+
+		const next = presets[i] ?? presets[i - 1] ?? null;
+		loadPreset(next?.id ?? null, next?.values ?? data.defaultValues);
+		renaming = false;
 	}
 
 	function addFlour() {
 		const used = values.flours.map((flour) => flour.flourTypeId);
-		values.flours.push({ flourTypeId: nextFlourTypeId(used), percent: 0 });
+		values.flours.push({ flourTypeId: nextFlourTypeId(flourTypes, used), percent: 0 });
 	}
 
 	function removeFlour(index: number) {
@@ -120,7 +208,6 @@
 	}
 
 	const results = $derived(computeResults(values));
-	// With one flour the split is not listed, so its grade rides on the `Farina` row instead.
 	const singleFlourName = $derived(
 		results.flours.length === 1
 			? flourTypes.find((type) => type.id === results.flours[0].flourTypeId)?.name
@@ -273,9 +360,9 @@
 				<input
 					type="text"
 					class="min-w-0 flex-1 text-lg"
-					bind:value={selectedPreset.name}
+					bind:value={renameValue}
 					use:autofocus
-					onblur={() => (renaming = false)}
+					onblur={commitRename}
 					onkeydown={(e) => {
 						if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
 					}}
@@ -292,7 +379,7 @@
 				aria-label="Rinomina preset"
 				title="Rinomina"
 				disabled={!selectedPreset}
-				onclick={() => (renaming = true)}
+				onclick={startRename}
 			>
 				<svg
 					class="size-5"
@@ -586,7 +673,7 @@
 						<ul class="mt-2 space-y-1 pl-4 text-sm text-ink/60">
 							{#each results.flours as flour, i (i)}
 								<li class="flex items-baseline gap-2">
-									<span class="truncate">{flourTypeName(flour.flourTypeId, i)}</span>
+									<span class="truncate">{flourTypeName(flourTypes, flour.flourTypeId, i)}</span>
 									<span class="min-w-4 flex-1 border-b border-dotted border-ink/15"></span>
 									<span class="w-10 text-right tabular-nums">{flour.percent}%</span>
 									<span class="w-14 text-right font-medium text-ink/80 tabular-nums">
