@@ -1,34 +1,37 @@
 export type FlourType = {
-	id: string;
+	id: number;
 	name: string;
 };
 
 export type Flour = {
-	flourTypeId: string;
+	flourTypeId: number;
 	percent: number;
 };
 
-/** Catalog of selectable flours. In-memory placeholder for the future sqlite table. */
+/**
+ * Catalog of selectable flours. In-memory placeholder for the future sqlite table.
+ * Ids mirror the autoincrement order in which `flour_type` is seeded.
+ */
 export const flourTypes: FlourType[] = [
-	{ id: 'tipo-00', name: 'Tipo 00' },
-	{ id: 'tipo-0', name: 'Tipo 0' },
-	{ id: 'tipo-0S', name: 'Tipo 0 Super' },
-	{ id: 'tipo-1', name: 'Tipo 1' },
-	{ id: 'tipo-2', name: 'Tipo 2' },
-	{ id: 'integrale', name: 'Integrale' },
-	{ id: 'manitoba', name: 'Manitoba' },
-	{ id: 'semola', name: 'Semola di grano duro rimacinata' }
+	{ id: 1, name: 'Tipo 00' },
+	{ id: 2, name: 'Tipo 0' },
+	{ id: 3, name: 'Tipo 0 Super' },
+	{ id: 4, name: 'Tipo 1' },
+	{ id: 5, name: 'Tipo 2' },
+	{ id: 6, name: 'Integrale' },
+	{ id: 7, name: 'Manitoba' },
+	{ id: 8, name: 'Semola di grano duro rimacinata' }
 ];
 
 export const defaultFlourTypeId = flourTypes[0].id;
 
 /** Function for vitest **/
-export function flourTypeName(id: string, index = 0): string {
+export function flourTypeName(id: number, index = 0): string {
 	const type = flourTypes.find((flourType) => flourType.id === id);
 	if (type) return type.name;
 	return index === 0 ? 'Farina' : `Farina ${index + 1}`;
 }
 
-export function nextFlourTypeId(usedIds: string[]): string {
+export function nextFlourTypeId(usedIds: number[]): number {
 	return flourTypes.find((type) => !usedIds.includes(type.id))?.id ?? defaultFlourTypeId;
 }

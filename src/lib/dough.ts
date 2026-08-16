@@ -2,7 +2,7 @@ import { clampValues, type PresetValues } from './presets';
 import { type Flour } from './flours';
 
 export type FlourWeight = {
-	flourTypeId: string;
+	flourTypeId: number;
 	percent: number;
 	weight: number;
 };
