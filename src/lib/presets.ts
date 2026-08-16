@@ -1,6 +1,5 @@
-import { defaultFlourTypeId, type Flour } from './flours';
+import { type Flour } from './flours';
 
-export const defaultFlours: Flour[] = [{ flourTypeId: defaultFlourTypeId, percent: 100 }];
 export const MAX_FLOURS = 3;
 
 export type YeastKind = 'dry' | 'fresh';
@@ -24,21 +23,6 @@ export type Preset = {
 	id: number;
 	name: string;
 	values: PresetValues;
-};
-
-export const defaultValues: PresetValues = {
-	doughBallCount: 1,
-	doughBallWeight: 200,
-	hydration: 65,
-	proofingHours: 24,
-	fridgeHours: 0,
-	saltPerLiter: 50,
-	oilPerLiter: 0,
-	roomTemperature: 20,
-	panPizza: false,
-	yeastKind: 'dry',
-	flours: defaultFlours.map((flour) => ({ ...flour })),
-	notes: ''
 };
 
 export function cloneValues(values: PresetValues): PresetValues {
@@ -66,10 +50,7 @@ function clamp(value: number, { min, max }: Limit): number {
 }
 
 function clampFlours(flours: Flour[]): Flour[] {
-	const list = flours.slice(0, MAX_FLOURS);
-	if (list.length === 0) return defaultFlours.map((flour) => ({ ...flour }));
-
-	return list.map(({ flourTypeId, percent }) => ({
+	return flours.slice(0, MAX_FLOURS).map(({ flourTypeId, percent }) => ({
 		flourTypeId,
 		percent: clamp(percent, limits.flourPercent)
 	}));
