@@ -19,6 +19,8 @@ ENV DATABASE_URL=/data/local.db
 
 COPY --from=builder /app/build build/
 COPY --from=builder /app/node_modules node_modules/
+COPY --from=builder /app/drizzle drizzle/
+COPY --from=builder /app/scripts scripts/
 COPY package.json .
 
 RUN mkdir -p /data && chown node:node /data
@@ -26,4 +28,4 @@ VOLUME /data
 
 USER node
 EXPOSE 3000
-CMD [ "node", "build" ]
+CMD [ "sh", "-c", "node scripts/migrate.js && node build" ]
