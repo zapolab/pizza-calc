@@ -4,7 +4,7 @@
 
 <div class="flex flex-col items-center px-4 py-16 text-center">
 	<svg
-		class="size-32 text-ink opacity-25"
+		class="size-32 text-ink opacity-50"
 		viewBox="0 0 120 120"
 		fill="none"
 		stroke="currentColor"
