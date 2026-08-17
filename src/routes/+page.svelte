@@ -5,6 +5,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { computeResults } from '$lib/dough';
 	import NumberField from '$lib/NumberField.svelte';
+	import PresetSkeleton from '$lib/PresetSkeleton.svelte';
 	import SegmentedControl from '$lib/SegmentedControl.svelte';
 	import { flourTypeName, nextFlourTypeId } from '$lib/flours';
 	import { themeChoices } from '$lib/theme';
@@ -40,6 +41,9 @@
 
 	let selectedId = $state<number | null>(untrack(() => data.presets[0]?.id ?? null));
 	let values = $state(cloneValues(untrack(() => data.presets[0]?.values ?? data.defaultValues)));
+
+	// True once `values` and `selectedId` agree on the preset to show
+	let ready = $state(false);
 
 	let sidebarOpen = $state(true);
 	let mobileSidebarOpen = $state(false);
@@ -133,17 +137,16 @@
 		lastSaved = stamp(id, values);
 
 		if (!browser) return;
-				if (id === null) localStorage.removeItem(PRESET_STORAGE_KEY);
-				else localStorage.setItem(PRESET_STORAGE_KEY, String(id));
+		if (id === null) localStorage.removeItem(PRESET_STORAGE_KEY);
+		else localStorage.setItem(PRESET_STORAGE_KEY, String(id));
 	}
 
 	// The server renders the first preset, then the stored one can be loaded
 	onMount(() => {
 		const raw = localStorage.getItem(PRESET_STORAGE_KEY);
-		if (raw === null) return;
-
-		const stored = presets.find((preset) => preset.id === Number(raw));
+		const stored = raw === null ? undefined : presets.find((preset) => preset.id === Number(raw));
 		if (stored && stored.id !== selectedId) loadPreset(stored.id, stored.values);
+		ready = true;
 	});
 
 	function selectPreset(preset: Preset) {
@@ -153,25 +156,25 @@
 		mobileSidebarOpen = false;
 	}
 
+	// `invalidateAll` refreshes the list before the new values are loaded: the body
+	// shows the previous preset until then, so it is hidden for the round trip.
 	async function createPreset() {
 		flushSave();
 
 		const fresh = cloneValues(data.defaultValues);
 
-		const body = new FormData();
-		body.set('name', 'Nuovo preset');
-		body.set('values', JSON.stringify(fresh));
-
-		const result = await post('create', body);
+			const body = new FormData();
+			body.set('name', 'Nuovo preset');
+			body.set('values', JSON.stringify(fresh))		const result = await post('create', body);
 		if (result.type !== 'success') return;
+n;
 
-		await invalidateAll();
-		const id = (result.data as { id?: number } | undefined)?.id;
-		if (id !== undefined) loadPreset(id, fresh);
-
-		renameValue = 'Nuovo preset';
+			await invalidateAll();
+			const id = (result.data as { id?: number } | undefined)?.id;
+			if (id !== undefined) loadPreset(id, fresh)		renameValue = 'Nuovo preset';
 		renaming = true;
 		mobileSidebarOpen = false;
+	}
 	}
 
 	function startRename() {
@@ -201,6 +204,7 @@
 		const id = selectedId;
 		if (id === null) return;
 		cancelSave();
+		ready = false;
 
 		const body = new FormData();
 		body.set('id', String(id));
@@ -210,6 +214,7 @@
 
 		const i = presets.findIndex((preset) => preset.id === id);
 		await invalidateAll();
+;
 
 		const next = presets[i] ?? presets[i - 1] ?? null;
 		loadPreset(next?.id ?? null, next?.values ?? data.defaultValues);
@@ -317,7 +322,7 @@
 						<button
 							type="button"
 							class="w-full truncate rounded px-2 py-1.5 text-left text-sm hover:bg-ink/5
-								{preset.id === selectedId ? 'bg-ink/10 font-medium' : ''}"
+								{ready && preset.id === selectedId ? 'bg-ink/10 font-medium' : ''}"
 							onclick={() => selectPreset(preset)}
 						>
 							{preset.name}
@@ -393,7 +398,12 @@
 				/>
 			{:else}
 				<h2 class="min-w-0 flex-1 truncate text-lg font-semibold">
-					{selectedPreset?.name ?? 'Nessun preset'}
+					{#if ready}
+						{selectedPreset?.name ?? 'Nessun preset'}
+					{:else}
+						<!-- Inline, so the heading's own line box keeps the row height. -->
+						<span class="inline-block h-4.5 w-40 animate-pulse rounded bg-ink/10"></span>
+					{/if}
 				</h2>
 			{/if}
 
@@ -472,281 +482,285 @@
 			</div>
 		</dialog>
 
-		<form>
-			<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
-				<NumberField
-					label="Numero panetti"
-					min={limits.doughBallCount.min}
-					max={limits.doughBallCount.max}
-					bind:value={values.doughBallCount}
-					error={errors.doughBallCount}
-				/>
-
-				<NumberField
-					label="Peso panetti"
-					unit="g"
-					min={limits.doughBallWeight.min}
-					max={limits.doughBallWeight.max}
-					bind:value={values.doughBallWeight}
-					error={errors.doughBallWeight}
-				/>
-
-				<NumberField
-					label="Idratazione"
-					unit="%"
-					min={limits.hydration.min}
-					max={limits.hydration.max}
-					bind:value={values.hydration}
-					error={errors.hydration}
-				/>
-			</div>
-
-			<details
-				bind:open={advancedOpen}
-				class="mt-6 rounded-lg border p-4 {hasAdvancedErrors
-					? 'border-red-600 dark:border-red-500'
-					: ''}"
-			>
-				<summary
-					class="cursor-pointer text-sm select-none {hasAdvancedErrors
-						? 'text-red-600 dark:text-red-400'
-						: ''}"
-				>
-					Parametri avanzati
-				</summary>
-
-				<div class="mt-4 space-y-3">
-					{#each values.flours as flour, i (i)}
-						<div class="flex flex-col gap-2 sm:flex-row sm:items-start">
-							<div class="min-w-0 flex-1">
-								<label for="flour-{i}" class="text-sm">
-									{values.flours.length > 1 ? `Farina ${i + 1}` : 'Farina'}
-								</label>
-								<select
-									id="flour-{i}"
-									bind:value={flour.flourTypeId}
-									class="mt-1 w-full rounded-md border-ink/25"
-								>
-									{#each flourTypes as flourType (flourType.id)}
-										<option value={flourType.id}>{flourType.name}</option>
-									{/each}
-								</select>
-							</div>
-
-							<div class="flex items-center gap-2 sm:contents">
-								<div class="min-w-0 flex-1 sm:w-44 sm:flex-none">
-									<NumberField
-										label="Percentuale"
-										unit="%"
-										min={limits.flourPercent.min}
-										max={limits.flourPercent.max}
-										bind:value={flour.percent}
-										error={errors.flourPercents?.[i]}
-									/>
-								</div>
-
-								{#if values.flours.length > 1}
-									<button
-										type="button"
-										class="mt-7 flex h-10.5 w-10 items-center justify-center rounded p-1.5 hover:bg-ink/5"
-										aria-label="Rimuovi farina {i + 1}"
-										title="Rimuovi"
-										onclick={() => removeFlour(i)}
-									>
-										<svg
-											class="size-5"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											aria-hidden="true"
-										>
-											<path d="M18 6L6 18M6 6l12 12" />
-										</svg>
-									</button>
-								{/if}
-							</div>
-						</div>
-					{/each}
-				</div>
-
-				{#if errors.flours}
-					<p class="mt-2 text-sm text-red-700 dark:text-red-400">{errors.flours}</p>
-				{/if}
-
-				<button
-					type="button"
-					class="mt-3 flex items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-ink/5 disabled:opacity-40"
-					disabled={values.flours.length >= MAX_FLOURS}
-					onclick={addFlour}
-				>
-					<svg
-						class="size-4"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						aria-hidden="true"
-					>
-						<path d="M12 5v14M5 12h14" />
-					</svg>
-					Aggiungi farina
-				</button>
-
-				<hr class="my-4" />
-
+		{#if ready}
+			<form>
 				<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
 					<NumberField
-						label="Lievitazione totale"
-						unit="h"
-						min={limits.proofingHours.min}
-						max={limits.proofingHours.max}
-						bind:value={values.proofingHours}
-						error={errors.proofingHours}
+						label="Numero panetti"
+						min={limits.doughBallCount.min}
+						max={limits.doughBallCount.max}
+						bind:value={values.doughBallCount}
+						error={errors.doughBallCount}
 					/>
 
 					<NumberField
-						label="Di cui in frigorifero"
-						unit="h"
-						min={limits.fridgeHours.min}
-						max={values.proofingHours - 1}
-						bind:value={values.fridgeHours}
-						error={errors.fridgeHours}
+						label="Peso panetti"
+						unit="g"
+						min={limits.doughBallWeight.min}
+						max={limits.doughBallWeight.max}
+						bind:value={values.doughBallWeight}
+						error={errors.doughBallWeight}
 					/>
 
 					<NumberField
-						label="Temperatura ambiente"
-						unit="°C"
-						min={limits.roomTemperature.min}
-						max={limits.roomTemperature.max}
-						bind:value={values.roomTemperature}
-						error={errors.roomTemperature}
-					/>
-
-					<NumberField
-						label="Sale"
-						unit="g/l"
-						min={limits.saltPerLiter.min}
-						max={limits.saltPerLiter.max}
-						bind:value={values.saltPerLiter}
-						error={errors.saltPerLiter}
-					/>
-
-					<NumberField
-						label="Olio"
-						unit="g/l"
-						min={limits.oilPerLiter.min}
-						max={limits.oilPerLiter.max}
-						bind:value={values.oilPerLiter}
-						error={errors.oilPerLiter}
+						label="Idratazione"
+						unit="%"
+						min={limits.hydration.min}
+						max={limits.hydration.max}
+						bind:value={values.hydration}
+						error={errors.hydration}
 					/>
 				</div>
 
-				<hr class="my-4" />
+				<details
+					bind:open={advancedOpen}
+					class="mt-6 rounded-lg border p-4 {hasAdvancedErrors
+						? 'border-red-600 dark:border-red-500'
+						: ''}"
+				>
+					<summary
+						class="cursor-pointer text-sm select-none {hasAdvancedErrors
+							? 'text-red-600 dark:text-red-400'
+							: ''}"
+					>
+						Parametri avanzati
+					</summary>
 
-				<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-					<div class="flex items-center justify-between gap-3">
-						<span class="text-sm">Pizza in teglia</span>
-						<SegmentedControl
-							label="Pizza in teglia"
-							options={panPizzaOptions}
-							bind:value={values.panPizza}
-						/>
+					<div class="mt-4 space-y-3">
+						{#each values.flours as flour, i (i)}
+							<div class="flex flex-col gap-2 sm:flex-row sm:items-start">
+								<div class="min-w-0 flex-1">
+									<label for="flour-{i}" class="text-sm">
+										{values.flours.length > 1 ? `Farina ${i + 1}` : 'Farina'}
+									</label>
+									<select
+										id="flour-{i}"
+										bind:value={flour.flourTypeId}
+										class="mt-1 w-full rounded-md border-ink/25"
+									>
+										{#each flourTypes as flourType (flourType.id)}
+											<option value={flourType.id}>{flourType.name}</option>
+										{/each}
+									</select>
+								</div>
+
+								<div class="flex items-center gap-2 sm:contents">
+									<div class="min-w-0 flex-1 sm:w-44 sm:flex-none">
+										<NumberField
+											label="Percentuale"
+											unit="%"
+											min={limits.flourPercent.min}
+											max={limits.flourPercent.max}
+											bind:value={flour.percent}
+											error={errors.flourPercents?.[i]}
+										/>
+									</div>
+
+									{#if values.flours.length > 1}
+										<button
+											type="button"
+											class="mt-7 flex h-10.5 w-10 items-center justify-center rounded p-1.5 hover:bg-ink/5"
+											aria-label="Rimuovi farina {i + 1}"
+											title="Rimuovi"
+											onclick={() => removeFlour(i)}
+										>
+											<svg
+												class="size-5"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												aria-hidden="true"
+											>
+												<path d="M18 6L6 18M6 6l12 12" />
+											</svg>
+										</button>
+									{/if}
+								</div>
+							</div>
+						{/each}
 					</div>
 
-					<div class="flex items-center justify-between gap-3">
-						<span class="text-sm">Lievito di birra</span>
-						<SegmentedControl
-							label="Tipo di lievito"
-							options={yeastKinds}
-							bind:value={values.yeastKind}
-						/>
-					</div>
-				</div>
-			</details>
-		</form>
-
-		<hr class="my-6" />
-
-		{#if hasErrors}
-			<p
-				class="mb-4 rounded-lg border border-red-600 bg-red-50 p-3 text-sm text-red-700
-					dark:border-red-500 dark:bg-red-950 dark:text-red-300"
-				role="alert"
-			>
-				Alcuni parametri non sono validi, si prega di correggerli.
-			</p>
-		{/if}
-
-		<div class="rounded-lg border p-4">
-			<ul class="space-y-3">
-				<li>
-					<div class="flex items-baseline gap-2">
-						<span class="truncate">
-							Farina
-							{#if singleFlourName}<span class="text-ink/50">{singleFlourName}</span>{/if}
-						</span>
-						<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
-						<span class="text-lg font-semibold tabular-nums">{results.flour} g</span>
-					</div>
-
-					{#if results.flours.length > 1}
-						<ul class="mt-2 space-y-1 pl-4 text-sm text-ink/60">
-							{#each results.flours as flour, i (i)}
-								<li class="flex items-baseline gap-2">
-									<span class="truncate">{flourTypeName(flourTypes, flour.flourTypeId, i)}</span>
-									<span class="min-w-4 flex-1 border-b border-dotted border-ink/15"></span>
-									<span class="w-10 text-right tabular-nums">{flour.percent}%</span>
-									<span class="w-14 text-right font-medium text-ink/80 tabular-nums">
-										{flour.weight} g
-									</span>
-								</li>
-							{/each}
-						</ul>
+					{#if errors.flours}
+						<p class="mt-2 text-sm text-red-700 dark:text-red-400">{errors.flours}</p>
 					{/if}
-				</li>
-				<li class="flex items-baseline gap-2">
-					<span>Acqua</span>
-					<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
-					<span class="text-lg font-semibold tabular-nums">{results.water} g</span>
-				</li>
-				<li class="flex items-baseline gap-2">
-					<span>Sale</span>
-					<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
-					<span class="text-lg font-semibold tabular-nums">{results.salt} g</span>
-				</li>
-				<li class="flex items-baseline gap-2">
-					<span>Olio</span>
-					<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
-					<span class="text-lg font-semibold tabular-nums">{results.oil} g</span>
-				</li>
-				<li class="flex items-baseline gap-2">
-					<span>{yeast.label}</span>
-					<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
-					<span class="text-lg font-semibold tabular-nums">{yeast.amount} g</span>
-				</li>
-			</ul>
 
-			<div class="mt-3 flex items-baseline gap-2 border-t pt-3">
-				<span class="font-medium">Peso totale impasto</span>
-				<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
-				<span class="text-xl font-bold tabular-nums">{results.totalWeight} g</span>
+					<button
+						type="button"
+						class="mt-3 flex items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-ink/5 disabled:opacity-40"
+						disabled={values.flours.length >= MAX_FLOURS}
+						onclick={addFlour}
+					>
+						<svg
+							class="size-4"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							aria-hidden="true"
+						>
+							<path d="M12 5v14M5 12h14" />
+						</svg>
+						Aggiungi farina
+					</button>
+
+					<hr class="my-4" />
+
+					<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
+						<NumberField
+							label="Lievitazione totale"
+							unit="h"
+							min={limits.proofingHours.min}
+							max={limits.proofingHours.max}
+							bind:value={values.proofingHours}
+							error={errors.proofingHours}
+						/>
+
+						<NumberField
+							label="Di cui in frigorifero"
+							unit="h"
+							min={limits.fridgeHours.min}
+							max={values.proofingHours - 1}
+							bind:value={values.fridgeHours}
+							error={errors.fridgeHours}
+						/>
+
+						<NumberField
+							label="Temperatura ambiente"
+							unit="°C"
+							min={limits.roomTemperature.min}
+							max={limits.roomTemperature.max}
+							bind:value={values.roomTemperature}
+							error={errors.roomTemperature}
+						/>
+
+						<NumberField
+							label="Sale"
+							unit="g/l"
+							min={limits.saltPerLiter.min}
+							max={limits.saltPerLiter.max}
+							bind:value={values.saltPerLiter}
+							error={errors.saltPerLiter}
+						/>
+
+						<NumberField
+							label="Olio"
+							unit="g/l"
+							min={limits.oilPerLiter.min}
+							max={limits.oilPerLiter.max}
+							bind:value={values.oilPerLiter}
+							error={errors.oilPerLiter}
+						/>
+					</div>
+
+					<hr class="my-4" />
+
+					<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+						<div class="flex items-center justify-between gap-3">
+							<span class="text-sm">Pizza in teglia</span>
+							<SegmentedControl
+								label="Pizza in teglia"
+								options={panPizzaOptions}
+								bind:value={values.panPizza}
+							/>
+						</div>
+
+						<div class="flex items-center justify-between gap-3">
+							<span class="text-sm">Lievito di birra</span>
+							<SegmentedControl
+								label="Tipo di lievito"
+								options={yeastKinds}
+								bind:value={values.yeastKind}
+							/>
+						</div>
+					</div>
+				</details>
+			</form>
+
+			<hr class="my-6" />
+
+			{#if hasErrors}
+				<p
+					class="mb-4 rounded-lg border border-red-600 bg-red-50 p-3 text-sm text-red-700
+					dark:border-red-500 dark:bg-red-950 dark:text-red-300"
+					role="alert"
+				>
+					Alcuni parametri non sono validi, si prega di correggerli.
+				</p>
+			{/if}
+
+			<div class="rounded-lg border p-4">
+				<ul class="space-y-3">
+					<li>
+						<div class="flex items-baseline gap-2">
+							<span class="truncate">
+								Farina
+								{#if singleFlourName}<span class="text-ink/50">{singleFlourName}</span>{/if}
+							</span>
+							<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
+							<span class="text-lg font-semibold tabular-nums">{results.flour} g</span>
+						</div>
+
+						{#if results.flours.length > 1}
+							<ul class="mt-2 space-y-1 pl-4 text-sm text-ink/60">
+								{#each results.flours as flour, i (i)}
+									<li class="flex items-baseline gap-2">
+										<span class="truncate">{flourTypeName(flourTypes, flour.flourTypeId, i)}</span>
+										<span class="min-w-4 flex-1 border-b border-dotted border-ink/15"></span>
+										<span class="w-10 text-right tabular-nums">{flour.percent}%</span>
+										<span class="w-14 text-right font-medium text-ink/80 tabular-nums">
+											{flour.weight} g
+										</span>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</li>
+					<li class="flex items-baseline gap-2">
+						<span>Acqua</span>
+						<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
+						<span class="text-lg font-semibold tabular-nums">{results.water} g</span>
+					</li>
+					<li class="flex items-baseline gap-2">
+						<span>Sale</span>
+						<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
+						<span class="text-lg font-semibold tabular-nums">{results.salt} g</span>
+					</li>
+					<li class="flex items-baseline gap-2">
+						<span>Olio</span>
+						<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
+						<span class="text-lg font-semibold tabular-nums">{results.oil} g</span>
+					</li>
+					<li class="flex items-baseline gap-2">
+						<span>{yeast.label}</span>
+						<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
+						<span class="text-lg font-semibold tabular-nums">{yeast.amount} g</span>
+					</li>
+				</ul>
+
+				<div class="mt-3 flex items-baseline gap-2 border-t pt-3">
+					<span class="font-medium">Peso totale impasto</span>
+					<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
+					<span class="text-xl font-bold tabular-nums">{results.totalWeight} g</span>
+				</div>
 			</div>
-		</div>
 
-		<hr class="my-6" />
+			<hr class="my-6" />
 
-		<div>
-			<label for="notes" class="text-sm">Note</label>
-			<textarea
-				id="notes"
-				rows="4"
-				placeholder="Tecnica di impasto, cottura, come è venuta…"
-				bind:value={values.notes}
-				class="mt-1 w-full resize-y rounded-md"></textarea>
-		</div>
+			<div>
+				<label for="notes" class="text-sm">Note</label>
+				<textarea
+					id="notes"
+					rows="4"
+					placeholder="Tecnica di impasto, cottura, come è venuta…"
+					bind:value={values.notes}
+					class="mt-1 w-full resize-y rounded-md"></textarea>
+			</div>
+		{:else}
+			<PresetSkeleton />
+		{/if}
 	</main>
 </div>
