@@ -272,9 +272,7 @@
 			{sidebarOpen ? 'sm:w-56' : 'sm:w-12'}"
 	>
 		<div class="flex shrink-0 items-center justify-between gap-2 p-2">
-			<h1
-				class="min-w-0 truncate text-lg font-semibold {sidebarOpen ? '' : 'hidden max-sm:block'}"
-			>
+			<h1 class="min-w-0 truncate text-lg font-semibold {sidebarOpen ? '' : 'hidden max-sm:block'}">
 				Pizza Calculator
 			</h1>
 
@@ -330,17 +328,23 @@
 			</div>
 
 			<!-- The only part of the sidebar allowed to shrink. -->
-			<ul class="min-h-0 overflow-y-auto px-2">
+			<ul class="min-h-0 overflow-y-auto px-2" aria-hidden={ready ? undefined : true}>
 				{#each presets as preset (preset.id)}
 					<li>
-						<button
-							type="button"
-							class="w-full truncate rounded px-2 py-1.5 text-left text-sm hover:bg-ink/5
-								{ready && preset.id === selectedId ? 'bg-ink/10 font-medium' : ''}"
-							onclick={() => selectPreset(preset)}
-						>
-							{preset.name}
-						</button>
+						{#if ready}
+							<button
+								type="button"
+								class="w-full truncate rounded px-2 py-1.5 text-left text-sm hover:bg-ink/5
+									{preset.id === selectedId ? 'bg-ink/10 font-medium' : ''}"
+								onclick={() => selectPreset(preset)}
+							>
+								{preset.name}
+							</button>
+						{:else}
+							<div class="flex h-8 items-center px-2">
+								<div class="h-3.5 w-full animate-pulse rounded bg-ink/10"></div>
+							</div>
+						{/if}
 					</li>
 				{/each}
 			</ul>
