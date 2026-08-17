@@ -164,6 +164,11 @@
 		renaming = true;
 	}
 
+	function cancelRename() {
+		renameValue = selectedPreset?.name ?? '';
+		renaming = false;
+	}
+
 	async function commitRename() {
 		renaming = false;
 		const name = renameValue.trim();
@@ -367,7 +372,8 @@
 					use:autofocus
 					onblur={commitRename}
 					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
+						if (e.key === 'Enter') e.currentTarget.blur();
+						if (e.key === 'Escape') cancelRename();
 					}}
 				/>
 			{:else}
