@@ -267,11 +267,11 @@
 
 	<aside
 		class="fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col overflow-y-auto border-r bg-surface transition-transform
-			sm:static sm:translate-x-0 sm:bg-transparent sm:transition-none
+			sm:sticky sm:top-0 sm:h-dvh sm:translate-x-0 sm:bg-transparent sm:transition-none
 			{mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
 			{sidebarOpen ? 'sm:w-56' : 'sm:w-12'}"
 	>
-		<div class="flex items-center justify-between gap-2 p-2">
+		<div class="flex shrink-0 items-center justify-between gap-2 p-2">
 			<span class="text-sm font-semibold {sidebarOpen ? '' : 'hidden max-sm:inline'}">Preset</span>
 
 			<button
@@ -321,7 +321,8 @@
 				? 'flex min-h-0 flex-1 flex-col'
 				: 'hidden min-h-0 flex-1 flex-col max-sm:flex'}
 		>
-			<ul class="px-2">
+			<!-- The only part of the sidebar allowed to shrink. -->
+			<ul class="min-h-0 overflow-y-auto px-2">
 				{#each presets as preset (preset.id)}
 					<li>
 						<button
@@ -336,7 +337,7 @@
 				{/each}
 			</ul>
 
-			<div class="p-2">
+			<div class="shrink-0 p-2">
 				<button
 					type="button"
 					class="flex w-full items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-ink/5"
@@ -359,7 +360,7 @@
 
 			<hr class="mx-2 mt-auto" />
 
-			<div class="p-2">
+			<div class="shrink-0 p-2">
 				<span class="text-sm">Tema</span>
 				<div class="mt-2 mb-1">
 					<SegmentedControl fill label="Tema" options={themeChoices} bind:value={theme.choice} />
