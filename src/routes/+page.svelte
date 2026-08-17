@@ -141,16 +141,18 @@
 	async function createPreset() {
 		flushSave();
 
+		const fresh = cloneValues(data.defaultValues);
+
 		const body = new FormData();
 		body.set('name', 'Nuovo preset');
-		body.set('values', JSON.stringify(cloneValues(values)));
+		body.set('values', JSON.stringify(fresh));
 
 		const result = await post('create', body);
 		if (result.type !== 'success') return;
 
 		await invalidateAll();
 		const id = (result.data as { id?: number } | undefined)?.id;
-		if (id !== undefined) loadPreset(id, values);
+		if (id !== undefined) loadPreset(id, fresh);
 
 		renameValue = 'Nuovo preset';
 		renaming = true;
