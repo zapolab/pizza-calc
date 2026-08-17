@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
+	import { browser } from '$app/environment';
 	import { deserialize } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { computeResults } from '$lib/dough';
@@ -22,6 +23,7 @@
 	let { data }: { data: PageData } = $props();
 
 	const SAVE_DELAY = 500;
+	const PRESET_STORAGE_KEY = 'preset';
 
 	const yeastKinds: { id: YeastKind; label: string }[] = [
 		{ id: 'dry', label: 'Secco' },
@@ -129,7 +131,20 @@
 		selectedId = id;
 		values = cloneValues(next);
 		lastSaved = stamp(id, values);
+
+		if (!browser) return;
+				if (id === null) localStorage.removeItem(PRESET_STORAGE_KEY);
+				else localStorage.setItem(PRESET_STORAGE_KEY, String(id));
 	}
+
+	// The server renders the first preset, then the stored one can be loaded
+	onMount(() => {
+		const raw = localStorage.getItem(PRESET_STORAGE_KEY);
+		if (raw === null) return;
+
+		const stored = presets.find((preset) => preset.id === Number(raw));
+		if (stored && stored.id !== selectedId) loadPreset(stored.id, stored.values);
+	});
 
 	function selectPreset(preset: Preset) {
 		flushSave();
