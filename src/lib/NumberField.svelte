@@ -16,7 +16,18 @@
 
 	function nudge(delta: number) {
 		const from = Number.isFinite(value) ? value : min;
-		value = Math.min(max, Math.max(min, from + delta));
+		value = Math.round(Math.min(max, Math.max(min, from + delta)));
+	}
+
+	function onInput(event: Event & { currentTarget: HTMLInputElement }) {
+		const raw = event.currentTarget.value;
+		value = raw === '' ? (null as unknown as number) : Math.round(Number(raw));
+	}
+
+	function onChange(event: Event & { currentTarget: HTMLInputElement }) {
+		const input = event.currentTarget;
+		const rounded = Number.isFinite(value) ? String(value) : '';
+		if (input.value !== rounded) input.value = rounded;
 	}
 </script>
 
@@ -44,7 +55,9 @@
 				{min}
 				{max}
 				{step}
-				bind:value
+				{value}
+				oninput={onInput}
+				onchange={onChange}
 				aria-invalid={invalid}
 				class="w-full min-w-0 rounded-none border-0 text-right focus:ring-0 {unit
 					? 'pr-1'
