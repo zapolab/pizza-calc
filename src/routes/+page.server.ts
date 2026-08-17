@@ -2,70 +2,17 @@ import { error, fail } from '@sveltejs/kit';
 import { and, asc, eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db';
 import { flourType, preset, presetFlour } from '$lib/server/db/schema';
-import { clampValues, type Preset, type PresetValues } from '$lib/presets';
+import type { Preset } from '$lib/presets';
 import type { Flour } from '$lib/flours';
+import {
+	parseId,
+	parseValues,
+	toColumns,
+	toFlourRows,
+	toValues,
+	type PresetRow
+} from '$lib/server/presets';
 import type { Actions, PageServerLoad } from './$types';
-
-type PresetRow = typeof preset.$inferSelect;
-
-function toValues(row: PresetRow, flours: Flour[]): PresetValues {
-	return {
-		doughBallCount: row.doughBallCount,
-		doughBallWeight: row.doughBallWeight,
-		hydration: row.hydration,
-		proofingHours: row.proofingHours,
-		fridgeHours: row.fridgeHours,
-		saltPerLiter: row.saltPerLiter,
-		oilPerLiter: row.oilPerLiter,
-		roomTemperature: row.roomTemperature,
-		panPizza: row.panPizza,
-		yeastKind: row.yeastKind,
-		flours,
-		notes: row.notes
-	};
-}
-
-function toColumns(values: PresetValues) {
-	const v = clampValues(values);
-	return {
-		doughBallCount: Math.round(v.doughBallCount),
-		doughBallWeight: Math.round(v.doughBallWeight),
-		hydration: Math.round(v.hydration),
-		proofingHours: Math.round(v.proofingHours),
-		fridgeHours: Math.round(v.fridgeHours),
-		saltPerLiter: Math.round(v.saltPerLiter),
-		oilPerLiter: Math.round(v.oilPerLiter),
-		roomTemperature: Math.round(v.roomTemperature),
-		panPizza: Boolean(v.panPizza),
-		yeastKind: v.yeastKind === 'fresh' ? ('fresh' as const) : ('dry' as const),
-		notes: String(v.notes ?? '')
-	};
-}
-
-function toFlourRows(presetId: number, values: PresetValues) {
-	return clampValues(values).flours.map((flour, slot) => ({
-		presetId,
-		slot,
-		flourTypeId: flour.flourTypeId,
-		percent: Math.round(flour.percent)
-	}));
-}
-
-function parseValues(raw: FormDataEntryValue | null): PresetValues | null {
-	if (typeof raw !== 'string') return null;
-	try {
-		const parsed = JSON.parse(raw);
-		if (!parsed || !Array.isArray(parsed.flours)) return null;
-		return parsed as PresetValues;
-	} catch {
-		return null;
-	}
-}
-
-function parseId(raw: FormDataEntryValue | null): number | null {
-	const id = Number(raw);
-	return Number.isInteger(id) ? id : null;
-}
 
 export const load: PageServerLoad = async () => {
 	const db = getDb();
@@ -157,7 +104,11 @@ export const actions: Actions = {
 		const name = String(data.get('name') ?? '').trim();
 		if (id === null || !name) return fail(400, { message: 'Nome mancante' });
 
-		getDb().update(preset).set({ name }).where(eq(preset.id, id)).run();
+		getDb()
+			.update(preset)
+			.set({ name })
+			.where(and(eq(preset.id, id), eq(preset.isDefault, false)))
+			.run();
 		return { renamed: true };
 	},
 
