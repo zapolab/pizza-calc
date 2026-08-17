@@ -108,6 +108,7 @@
 
 		const current = stamp(selectedId, snapshot);
 		if (current === lastSaved) return;
+		if (hasErrors) return;
 		lastSaved = current;
 
 		pendingSave = { id: selectedId, values: snapshot };
