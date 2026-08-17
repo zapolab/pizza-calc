@@ -26,6 +26,7 @@
 	const SAVE_DELAY = 500;
 	const PRESET_STORAGE_KEY = 'preset';
 	const ADVANCED_STORAGE_KEY = 'advanced';
+	const SCROLL_LOCK_CLASS = 'max-sm:overflow-hidden';
 
 	const yeastKinds: { id: YeastKind; label: string }[] = [
 		{ id: 'dry', label: 'Secco' },
@@ -77,6 +78,12 @@
 	$effect(() => {
 		if (!ready) return;
 		localStorage.setItem(ADVANCED_STORAGE_KEY, String(advancedOpen));
+	});
+
+	$effect(() => {
+		const html = document.documentElement;
+		html.classList.toggle(SCROLL_LOCK_CLASS, mobileSidebarOpen);
+		return () => html.classList.remove(SCROLL_LOCK_CLASS);
 	});
 
 	const selectedPreset = $derived(presets.find((p) => p.id === selectedId) ?? null);
