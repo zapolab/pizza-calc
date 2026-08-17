@@ -1,0 +1,1 @@
+ALTER TABLE `preset` ADD `isDefault` integer DEFAULT false NOT NULL;
