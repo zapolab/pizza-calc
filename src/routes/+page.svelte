@@ -462,7 +462,7 @@
 
 		<dialog
 			bind:this={deleteDialog}
-			class="m-auto max-w-sm rounded-lg border bg-surface p-4 text-ink backdrop:bg-black/40"
+			class="m-auto sm:max-w-sm rounded-lg border bg-surface p-4 text-ink backdrop:bg-black/40"
 		>
 			<h3 class="text-lg font-semibold">Eliminare il preset?</h3>
 			<p class="mt-2 text-sm">
