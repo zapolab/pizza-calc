@@ -7,9 +7,19 @@
 		unit?: string;
 		step?: number;
 		error?: string;
+		disabled?: boolean;
 	};
 
-	let { label, value = $bindable(), min, max, unit, step = 1, error }: Props = $props();
+	let {
+		label,
+		value = $bindable(),
+		min,
+		max,
+		unit,
+		step = 1,
+		error,
+		disabled = false
+	}: Props = $props();
 
 	const id = $props.id();
 	const invalid = $derived(Boolean(error));
@@ -42,7 +52,7 @@
 			type="button"
 			class="px-3 text-lg leading-none select-none hover:bg-ink/5 disabled:opacity-30"
 			aria-label="Diminuisci: {label}"
-			disabled={value <= min}
+			disabled={disabled || value <= min}
 			onclick={() => nudge(-step)}
 		>
 			−
@@ -56,10 +66,11 @@
 				{max}
 				{step}
 				{value}
+				{disabled}
 				oninput={onInput}
 				onchange={onChange}
 				aria-invalid={invalid}
-				class="w-full min-w-0 rounded-none border-0 text-right focus:ring-0 {unit
+				class="w-full min-w-0 rounded-none border-0 text-right focus:ring-0 disabled:text-ink/40 {unit
 					? 'pr-1'
 					: 'pr-3'}"
 			/>
@@ -74,7 +85,7 @@
 			type="button"
 			class="px-3 text-lg leading-none select-none hover:bg-ink/5 disabled:opacity-30"
 			aria-label="Aumenta: {label}"
-			disabled={value >= max}
+			disabled={disabled || value >= max}
 			onclick={() => nudge(step)}
 		>
 			+

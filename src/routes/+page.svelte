@@ -1,9 +1,12 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
+	import { browser } from '$app/environment';
 	import { deserialize } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { computeResults } from '$lib/dough';
 	import NumberField from '$lib/NumberField.svelte';
+	import PresetEmptyState from '$lib/PresetEmptyState.svelte';
+	import PresetSkeleton from '$lib/PresetSkeleton.svelte';
 	import SegmentedControl from '$lib/SegmentedControl.svelte';
 	import { flourTypeName, nextFlourTypeId } from '$lib/flours';
 	import { themeChoices } from '$lib/theme';
@@ -12,7 +15,9 @@
 		cloneValues,
 		limits,
 		MAX_FLOURS,
+		rebalanceFlours,
 		validateValues,
+		withFlourRemoved,
 		type Preset,
 		type PresetValues,
 		type YeastKind
@@ -22,6 +27,9 @@
 	let { data }: { data: PageData } = $props();
 
 	const SAVE_DELAY = 500;
+	const PRESET_STORAGE_KEY = 'preset';
+	const ADVANCED_STORAGE_KEY = 'advanced';
+	const SCROLL_LOCK_CLASS = 'max-sm:overflow-hidden';
 
 	const yeastKinds: { id: YeastKind; label: string }[] = [
 		{ id: 'dry', label: 'Secco' },
@@ -34,10 +42,14 @@
 	];
 
 	const presets = $derived(data.presets);
+	const hasPresets = $derived(presets.length > 0);
 	const flourTypes = $derived(data.flourTypes);
 
 	let selectedId = $state<number | null>(untrack(() => data.presets[0]?.id ?? null));
 	let values = $state(cloneValues(untrack(() => data.presets[0]?.values ?? data.defaultValues)));
+
+	// True once `values` and `selectedId` agree on the preset to show
+	let ready = $state(false);
 
 	let sidebarOpen = $state(true);
 	let mobileSidebarOpen = $state(false);
@@ -45,6 +57,7 @@
 	let renaming = $state(false);
 	let renameValue = $state('');
 	let deleteDialog = $state<HTMLDialogElement | null>(null);
+	let deleteTarget = $state<Preset | null>(null);
 
 	const errors = $derived(validateValues(values));
 	const hasErrors = $derived(Object.keys(errors).length > 0);
@@ -63,6 +76,18 @@
 	// An error inside the collapsed section would go unnoticed.
 	$effect(() => {
 		if (hasAdvancedErrors) advancedOpen = true;
+	});
+
+	// Writes only once `onMount` has restored it.
+	$effect(() => {
+		if (!ready) return;
+		localStorage.setItem(ADVANCED_STORAGE_KEY, String(advancedOpen));
+	});
+
+	$effect(() => {
+		const html = document.documentElement;
+		html.classList.toggle(SCROLL_LOCK_CLASS, mobileSidebarOpen);
+		return () => html.classList.remove(SCROLL_LOCK_CLASS);
 	});
 
 	const selectedPreset = $derived(presets.find((p) => p.id === selectedId) ?? null);
@@ -129,7 +154,21 @@
 		selectedId = id;
 		values = cloneValues(next);
 		lastSaved = stamp(id, values);
+
+		if (!browser) return;
+		if (id === null) localStorage.removeItem(PRESET_STORAGE_KEY);
+		else localStorage.setItem(PRESET_STORAGE_KEY, String(id));
 	}
+
+	// The server renders the first preset, then the stored one can be loaded
+	onMount(() => {
+		const raw = localStorage.getItem(PRESET_STORAGE_KEY);
+		const stored = raw === null ? undefined : presets.find((preset) => preset.id === Number(raw));
+		if (stored && stored.id !== selectedId) loadPreset(stored.id, stored.values);
+
+		advancedOpen = localStorage.getItem(ADVANCED_STORAGE_KEY) === 'true';
+		ready = true;
+	});
 
 	function selectPreset(preset: Preset) {
 		flushSave();
@@ -182,10 +221,14 @@
 		if (result.type === 'success') await invalidateAll();
 	}
 
-	async function deletePreset() {
-		const id = selectedId;
-		if (id === null) return;
-		cancelSave();
+	function requestDelete(preset: Preset) {
+		deleteTarget = preset;
+		deleteDialog?.showModal();
+	}
+
+	async function deletePreset(id: number) {
+		if (id === selectedId) cancelSave();
+		else flushSave();
 
 		const body = new FormData();
 		body.set('id', String(id));
@@ -195,6 +238,7 @@
 
 		const i = presets.findIndex((preset) => preset.id === id);
 		await invalidateAll();
+		if (id !== selectedId) return;
 
 		const next = presets[i] ?? presets[i - 1] ?? null;
 		loadPreset(next?.id ?? null, next?.values ?? data.defaultValues);
@@ -206,8 +250,12 @@
 		values.flours.push({ flourTypeId: nextFlourTypeId(flourTypes, used), percent: 0 });
 	}
 
+	function setFlourPercent(index: number, percent: number) {
+		values.flours = rebalanceFlours(values.flours, index, percent);
+	}
+
 	function removeFlour(index: number) {
-		values.flours.splice(index, 1);
+		values.flours = withFlourRemoved(values.flours, index);
 	}
 
 	function autofocus(node: HTMLInputElement) {
@@ -228,28 +276,38 @@
 	);
 </script>
 
-<div class="flex min-h-screen">
-	{#if mobileSidebarOpen}
-		<button
-			type="button"
-			class="fixed inset-0 z-30 bg-black/40 sm:hidden"
-			aria-label="Chiudi barra laterale"
-			onclick={() => (mobileSidebarOpen = false)}
-		></button>
-	{/if}
+{#snippet trashIcon(size: string)}
+	<svg
+		class={size}
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2" />
+		<path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+		<path d="M10 11v6M14 11v6" />
+	</svg>
+{/snippet}
 
+<div class="flex min-h-screen">
 	<aside
-		class="fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col overflow-y-auto border-r bg-surface transition-transform
-			sm:static sm:translate-x-0 sm:bg-transparent sm:transition-none
+		class="fixed inset-y-0 left-0 z-40 flex w-full shrink-0 flex-col overflow-y-auto border-r bg-surface transition-transform
+			sm:sticky sm:top-0 sm:h-dvh sm:translate-x-0 sm:bg-transparent sm:transition-none
 			{mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
 			{sidebarOpen ? 'sm:w-56' : 'sm:w-12'}"
 	>
-		<div class="flex items-center justify-between gap-2 p-2">
-			<span class="text-sm font-semibold {sidebarOpen ? '' : 'hidden max-sm:inline'}">Preset</span>
+		<div class="flex shrink-0 items-center justify-between gap-2 p-2">
+			<h1 class="min-w-0 truncate text-lg font-semibold {sidebarOpen ? '' : 'hidden max-sm:block'}">
+				Pizza Calculator
+			</h1>
 
 			<button
 				type="button"
-				class="rounded p-1 hover:bg-ink/5 sm:hidden"
+				class="rounded p-3 hover:bg-ink/5 sm:hidden"
 				aria-label="Chiudi barra laterale"
 				onclick={() => (mobileSidebarOpen = false)}
 			>
@@ -289,36 +347,57 @@
 			</button>
 		</div>
 
-		<!-- `hidden` and `flex` are both base utilities, so the collapsed branch reaches
-			 display through the `max-sm:` variant, which Tailwind emits later. -->
 		<div
 			class={sidebarOpen
 				? 'flex min-h-0 flex-1 flex-col'
 				: 'hidden min-h-0 flex-1 flex-col max-sm:flex'}
 		>
-			<ul class="px-2">
+			<div class="shrink-0 px-2 pb-1">
+				<span class="text-sm font-semibold">Presets</span>
+			</div>
+
+			<!-- The only part of the sidebar allowed to shrink. -->
+			<ul class="min-h-0 overflow-y-auto px-2" aria-hidden={ready ? undefined : true}>
 				{#each presets as preset (preset.id)}
-					<li>
-						<button
-							type="button"
-							class="w-full truncate rounded px-2 py-1.5 text-left text-sm hover:bg-ink/5
-								{preset.id === selectedId ? 'bg-ink/10 font-medium' : ''}"
-							onclick={() => selectPreset(preset)}
-						>
-							{preset.name}
-						</button>
+					<li class="flex items-center gap-1">
+						{#if ready}
+							<button
+								type="button"
+								class="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-sm hover:bg-ink/5
+									max-sm:py-3 max-sm:text-base
+									{preset.id === selectedId ? 'bg-ink/10 font-medium' : ''}"
+								onclick={() => selectPreset(preset)}
+							>
+								{preset.name}
+							</button>
+
+							<button
+								type="button"
+								class="shrink-0 rounded p-2 text-ink/50 hover:bg-ink/5 hover:text-ink max-sm:p-3"
+								aria-label="Elimina {preset.name}"
+								title="Elimina"
+								onclick={() => requestDelete(preset)}
+							>
+								{@render trashIcon('size-4 max-sm:size-5')}
+							</button>
+						{:else}
+							<div class="flex h-8 flex-1 items-center px-2 max-sm:h-12">
+								<div class="h-3.5 w-full animate-pulse rounded bg-ink/10"></div>
+							</div>
+						{/if}
 					</li>
 				{/each}
 			</ul>
 
-			<div class="p-2">
+			<div class="shrink-0 p-2">
 				<button
 					type="button"
-					class="flex w-full items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-ink/5"
+					class="flex w-full items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-ink/5
+						max-sm:py-3 max-sm:text-base"
 					onclick={createPreset}
 				>
 					<svg
-						class="size-4"
+						class="size-4 max-sm:size-5"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
@@ -334,7 +413,7 @@
 
 			<hr class="mx-2 mt-auto" />
 
-			<div class="p-2">
+			<div class="shrink-0 p-2">
 				<span class="text-sm">Tema</span>
 				<div class="mt-2 mb-1">
 					<SegmentedControl fill label="Tema" options={themeChoices} bind:value={theme.choice} />
@@ -344,7 +423,9 @@
 	</aside>
 
 	<main class="mx-auto w-full max-w-3xl p-4">
-		<div class="mb-4 flex items-center gap-2 border-b pb-2">
+		<div
+			class="sticky top-0 z-20 -mx-4 -mt-4 mb-4 flex items-center gap-2 border-b bg-surface px-4 pt-4 pb-2"
+		>
 			<button
 				type="button"
 				class="rounded p-1.5 hover:bg-ink/5 sm:hidden"
@@ -378,7 +459,11 @@
 				/>
 			{:else}
 				<h2 class="min-w-0 flex-1 truncate text-lg font-semibold">
-					{selectedPreset?.name ?? 'Nessun preset'}
+					{#if ready || !hasPresets}
+						{selectedPreset?.name ?? 'Nessun preset'}
+					{:else}
+						<span class="inline-block h-4.5 w-40 animate-pulse rounded bg-ink/10"></span>
+					{/if}
 				</h2>
 			{/if}
 
@@ -411,32 +496,19 @@
 				aria-label="Elimina preset"
 				title="Elimina preset"
 				disabled={!selectedPreset}
-				onclick={() => deleteDialog?.showModal()}
+				onclick={() => selectedPreset && requestDelete(selectedPreset)}
 			>
-				<svg
-					class="size-5"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-				>
-					<path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2" />
-					<path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-					<path d="M10 11v6M14 11v6" />
-				</svg>
+				{@render trashIcon('size-5')}
 			</button>
 		</div>
 
 		<dialog
 			bind:this={deleteDialog}
-			class="m-auto max-w-sm rounded-lg border bg-surface p-4 text-ink backdrop:bg-black/40"
+			class="m-auto rounded-lg border bg-surface p-4 text-ink backdrop:bg-black/40 sm:max-w-sm"
 		>
 			<h3 class="text-lg font-semibold">Eliminare il preset?</h3>
 			<p class="mt-2 text-sm">
-				Il preset <strong>{selectedPreset?.name}</strong> verrà eliminato definitivamente.
+				Il preset <strong>{deleteTarget?.name}</strong> verrà eliminato definitivamente.
 			</p>
 			<div class="mt-4 flex justify-end gap-2">
 				<button
@@ -450,288 +522,295 @@
 					type="button"
 					class="rounded border border-red-600 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50
 						dark:border-red-500 dark:text-red-400 dark:hover:bg-red-950"
-					onclick={deletePreset}
+					onclick={() => deleteTarget && deletePreset(deleteTarget.id)}
 				>
 					Elimina
 				</button>
 			</div>
 		</dialog>
 
-		<form>
-			<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
-				<NumberField
-					label="Numero panetti"
-					min={limits.doughBallCount.min}
-					max={limits.doughBallCount.max}
-					bind:value={values.doughBallCount}
-					error={errors.doughBallCount}
-				/>
-
-				<NumberField
-					label="Peso panetti"
-					unit="g"
-					min={limits.doughBallWeight.min}
-					max={limits.doughBallWeight.max}
-					bind:value={values.doughBallWeight}
-					error={errors.doughBallWeight}
-				/>
-
-				<NumberField
-					label="Idratazione"
-					unit="%"
-					min={limits.hydration.min}
-					max={limits.hydration.max}
-					bind:value={values.hydration}
-					error={errors.hydration}
-				/>
-			</div>
-
-			<details
-				bind:open={advancedOpen}
-				class="mt-6 rounded-lg border p-4 {hasAdvancedErrors
-					? 'border-red-600 dark:border-red-500'
-					: ''}"
-			>
-				<summary
-					class="cursor-pointer text-sm select-none {hasAdvancedErrors
-						? 'text-red-600 dark:text-red-400'
-						: ''}"
-				>
-					Parametri avanzati
-				</summary>
-
-				<div class="mt-4 space-y-3">
-					{#each values.flours as flour, i (i)}
-						<div class="flex flex-col gap-2 sm:flex-row sm:items-start">
-							<div class="min-w-0 flex-1">
-								<label for="flour-{i}" class="text-sm">
-									{values.flours.length > 1 ? `Farina ${i + 1}` : 'Farina'}
-								</label>
-								<select
-									id="flour-{i}"
-									bind:value={flour.flourTypeId}
-									class="mt-1 w-full rounded-md border-ink/25"
-								>
-									{#each flourTypes as flourType (flourType.id)}
-										<option value={flourType.id}>{flourType.name}</option>
-									{/each}
-								</select>
-							</div>
-
-							<div class="flex items-center gap-2 sm:contents">
-								<div class="min-w-0 flex-1 sm:w-44 sm:flex-none">
-									<NumberField
-										label="Percentuale"
-										unit="%"
-										min={limits.flourPercent.min}
-										max={limits.flourPercent.max}
-										bind:value={flour.percent}
-										error={errors.flourPercents?.[i]}
-									/>
-								</div>
-
-								{#if values.flours.length > 1}
-									<button
-										type="button"
-										class="mt-7 flex h-10.5 w-10 items-center justify-center rounded p-1.5 hover:bg-ink/5"
-										aria-label="Rimuovi farina {i + 1}"
-										title="Rimuovi"
-										onclick={() => removeFlour(i)}
-									>
-										<svg
-											class="size-5"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											aria-hidden="true"
-										>
-											<path d="M18 6L6 18M6 6l12 12" />
-										</svg>
-									</button>
-								{/if}
-							</div>
-						</div>
-					{/each}
-				</div>
-
-				{#if errors.flours}
-					<p class="mt-2 text-sm text-red-700 dark:text-red-400">{errors.flours}</p>
-				{/if}
-
-				<button
-					type="button"
-					class="mt-3 flex items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-ink/5 disabled:opacity-40"
-					disabled={values.flours.length >= MAX_FLOURS}
-					onclick={addFlour}
-				>
-					<svg
-						class="size-4"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						aria-hidden="true"
-					>
-						<path d="M12 5v14M5 12h14" />
-					</svg>
-					Aggiungi farina
-				</button>
-
-				<hr class="my-4" />
-
+		{#if !hasPresets}
+			<PresetEmptyState oncreate={createPreset} />
+		{:else if ready}
+			<form>
 				<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
 					<NumberField
-						label="Lievitazione totale"
-						unit="h"
-						min={limits.proofingHours.min}
-						max={limits.proofingHours.max}
-						bind:value={values.proofingHours}
-						error={errors.proofingHours}
+						label="Numero panetti"
+						min={limits.doughBallCount.min}
+						max={limits.doughBallCount.max}
+						bind:value={values.doughBallCount}
+						error={errors.doughBallCount}
 					/>
 
 					<NumberField
-						label="Di cui in frigorifero"
-						unit="h"
-						min={limits.fridgeHours.min}
-						max={values.proofingHours - 1}
-						bind:value={values.fridgeHours}
-						error={errors.fridgeHours}
+						label="Peso panetti"
+						unit="g"
+						min={limits.doughBallWeight.min}
+						max={limits.doughBallWeight.max}
+						bind:value={values.doughBallWeight}
+						error={errors.doughBallWeight}
 					/>
 
 					<NumberField
-						label="Temperatura ambiente"
-						unit="°C"
-						min={limits.roomTemperature.min}
-						max={limits.roomTemperature.max}
-						bind:value={values.roomTemperature}
-						error={errors.roomTemperature}
-					/>
-
-					<NumberField
-						label="Sale"
-						unit="g/l"
-						min={limits.saltPerLiter.min}
-						max={limits.saltPerLiter.max}
-						bind:value={values.saltPerLiter}
-						error={errors.saltPerLiter}
-					/>
-
-					<NumberField
-						label="Olio"
-						unit="g/l"
-						min={limits.oilPerLiter.min}
-						max={limits.oilPerLiter.max}
-						bind:value={values.oilPerLiter}
-						error={errors.oilPerLiter}
+						label="Idratazione"
+						unit="%"
+						min={limits.hydration.min}
+						max={limits.hydration.max}
+						bind:value={values.hydration}
+						error={errors.hydration}
 					/>
 				</div>
 
-				<hr class="my-4" />
+				<details
+					bind:open={advancedOpen}
+					class="mt-6 rounded-lg border p-4 {hasAdvancedErrors
+						? 'border-red-600 dark:border-red-500'
+						: ''}"
+				>
+					<summary
+						class="cursor-pointer text-sm select-none {hasAdvancedErrors
+							? 'text-red-600 dark:text-red-400'
+							: ''}"
+					>
+						Parametri avanzati
+					</summary>
 
-				<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-					<div class="flex items-center justify-between gap-3">
-						<span class="text-sm">Pizza in teglia</span>
-						<SegmentedControl
-							label="Pizza in teglia"
-							options={panPizzaOptions}
-							bind:value={values.panPizza}
-						/>
+					<div class="mt-4 space-y-3">
+						{#each values.flours as flour, i (i)}
+							<div class="flex flex-col gap-2 sm:flex-row sm:items-start">
+								<div class="min-w-0 flex-1">
+									<label for="flour-{i}" class="text-sm">
+										{values.flours.length > 1 ? `Farina ${i + 1}` : 'Farina'}
+									</label>
+									<select
+										id="flour-{i}"
+										bind:value={flour.flourTypeId}
+										class="mt-1 w-full rounded-md border-ink/25"
+									>
+										{#each flourTypes as flourType (flourType.id)}
+											<option value={flourType.id}>{flourType.name}</option>
+										{/each}
+									</select>
+								</div>
+
+								<div class="flex items-center gap-2 sm:contents">
+									<div class="min-w-0 flex-1 sm:w-44 sm:flex-none">
+										<NumberField
+											label="Percentuale"
+											unit="%"
+											min={limits.flourPercent.min}
+											max={limits.flourPercent.max}
+											bind:value={() => flour.percent, (percent) => setFlourPercent(i, percent)}
+											disabled={values.flours.length === 1}
+											error={errors.flourPercents?.[i]}
+										/>
+									</div>
+
+									{#if values.flours.length > 1}
+										<button
+											type="button"
+											class="mt-7 flex h-10.5 w-10 items-center justify-center rounded p-1.5 hover:bg-ink/5"
+											aria-label="Rimuovi farina {i + 1}"
+											title="Rimuovi"
+											onclick={() => removeFlour(i)}
+										>
+											<svg
+												class="size-5"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												aria-hidden="true"
+											>
+												<path d="M18 6L6 18M6 6l12 12" />
+											</svg>
+										</button>
+									{/if}
+								</div>
+							</div>
+						{/each}
 					</div>
 
-					<div class="flex items-center justify-between gap-3">
-						<span class="text-sm">Lievito di birra</span>
-						<SegmentedControl
-							label="Tipo di lievito"
-							options={yeastKinds}
-							bind:value={values.yeastKind}
-						/>
-					</div>
-				</div>
-			</details>
-		</form>
-
-		<hr class="my-6" />
-
-		{#if hasErrors}
-			<p
-				class="mb-4 rounded-lg border border-red-600 bg-red-50 p-3 text-sm text-red-700
-					dark:border-red-500 dark:bg-red-950 dark:text-red-300"
-				role="alert"
-			>
-				Alcuni parametri non sono validi, si prega di correggerli.
-			</p>
-		{/if}
-
-		<div class="rounded-lg border p-4">
-			<ul class="space-y-3">
-				<li>
-					<div class="flex items-baseline gap-2">
-						<span class="truncate">
-							Farina
-							{#if singleFlourName}<span class="text-ink/50">{singleFlourName}</span>{/if}
-						</span>
-						<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
-						<span class="text-lg font-semibold tabular-nums">{results.flour} g</span>
-					</div>
-
-					{#if results.flours.length > 1}
-						<ul class="mt-2 space-y-1 pl-4 text-sm text-ink/60">
-							{#each results.flours as flour, i (i)}
-								<li class="flex items-baseline gap-2">
-									<span class="truncate">{flourTypeName(flourTypes, flour.flourTypeId, i)}</span>
-									<span class="min-w-4 flex-1 border-b border-dotted border-ink/15"></span>
-									<span class="w-10 text-right tabular-nums">{flour.percent}%</span>
-									<span class="w-14 text-right font-medium text-ink/80 tabular-nums">
-										{flour.weight} g
-									</span>
-								</li>
-							{/each}
-						</ul>
+					{#if errors.flours}
+						<p class="mt-2 text-sm text-red-700 dark:text-red-400">{errors.flours}</p>
 					{/if}
-				</li>
-				<li class="flex items-baseline gap-2">
-					<span>Acqua</span>
-					<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
-					<span class="text-lg font-semibold tabular-nums">{results.water} g</span>
-				</li>
-				<li class="flex items-baseline gap-2">
-					<span>Sale</span>
-					<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
-					<span class="text-lg font-semibold tabular-nums">{results.salt} g</span>
-				</li>
-				<li class="flex items-baseline gap-2">
-					<span>Olio</span>
-					<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
-					<span class="text-lg font-semibold tabular-nums">{results.oil} g</span>
-				</li>
-				<li class="flex items-baseline gap-2">
-					<span>{yeast.label}</span>
-					<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
-					<span class="text-lg font-semibold tabular-nums">{yeast.amount} g</span>
-				</li>
-			</ul>
 
-			<div class="mt-3 flex items-baseline gap-2 border-t pt-3">
-				<span class="font-medium">Peso totale impasto</span>
-				<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
-				<span class="text-xl font-bold tabular-nums">{results.totalWeight} g</span>
+					<button
+						type="button"
+						class="mt-3 flex items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-ink/5 disabled:opacity-40"
+						disabled={values.flours.length >= MAX_FLOURS}
+						onclick={addFlour}
+					>
+						<svg
+							class="size-4"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							aria-hidden="true"
+						>
+							<path d="M12 5v14M5 12h14" />
+						</svg>
+						Aggiungi farina
+					</button>
+
+					<hr class="my-4" />
+
+					<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
+						<NumberField
+							label="Lievitazione totale"
+							unit="h"
+							min={limits.proofingHours.min}
+							max={limits.proofingHours.max}
+							bind:value={values.proofingHours}
+							error={errors.proofingHours}
+						/>
+
+						<NumberField
+							label="Di cui in frigorifero"
+							unit="h"
+							min={limits.fridgeHours.min}
+							max={values.proofingHours - 1}
+							bind:value={values.fridgeHours}
+							error={errors.fridgeHours}
+						/>
+
+						<NumberField
+							label="Temperatura ambiente"
+							unit="°C"
+							min={limits.roomTemperature.min}
+							max={limits.roomTemperature.max}
+							bind:value={values.roomTemperature}
+							error={errors.roomTemperature}
+						/>
+
+						<NumberField
+							label="Sale"
+							unit="g/l"
+							min={limits.saltPerLiter.min}
+							max={limits.saltPerLiter.max}
+							bind:value={values.saltPerLiter}
+							error={errors.saltPerLiter}
+						/>
+
+						<NumberField
+							label="Olio"
+							unit="g/l"
+							min={limits.oilPerLiter.min}
+							max={limits.oilPerLiter.max}
+							bind:value={values.oilPerLiter}
+							error={errors.oilPerLiter}
+						/>
+					</div>
+
+					<hr class="my-4" />
+
+					<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+						<div class="flex items-center justify-between gap-3">
+							<span class="text-sm">Pizza in teglia</span>
+							<SegmentedControl
+								label="Pizza in teglia"
+								options={panPizzaOptions}
+								bind:value={values.panPizza}
+							/>
+						</div>
+
+						<div class="flex items-center justify-between gap-3">
+							<span class="text-sm">Lievito di birra</span>
+							<SegmentedControl
+								label="Tipo di lievito"
+								options={yeastKinds}
+								bind:value={values.yeastKind}
+							/>
+						</div>
+					</div>
+				</details>
+			</form>
+
+			<hr class="my-6" />
+
+			{#if hasErrors}
+				<p
+					class="mb-4 rounded-lg border border-red-600 bg-red-50 p-3 text-sm text-red-700
+					dark:border-red-500 dark:bg-red-950 dark:text-red-300"
+					role="alert"
+				>
+					Alcuni parametri non sono validi, si prega di correggerli.
+				</p>
+			{/if}
+
+			<div class="rounded-lg border p-4">
+				<ul class="space-y-3">
+					<li>
+						<div class="flex items-baseline gap-2">
+							<span class="truncate">
+								Farina
+								{#if singleFlourName}<span class="text-ink/50">{singleFlourName}</span>{/if}
+							</span>
+							<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
+							<span class="text-lg font-semibold tabular-nums">{results.flour} g</span>
+						</div>
+
+						{#if results.flours.length > 1}
+							<ul class="mt-2 space-y-1 pl-4 text-sm text-ink/60">
+								{#each results.flours as flour, i (i)}
+									<li class="flex items-baseline gap-2">
+										<span class="truncate">{flourTypeName(flourTypes, flour.flourTypeId, i)}</span>
+										<span class="min-w-4 flex-1 border-b border-dotted border-ink/15"></span>
+										<span class="w-10 text-right tabular-nums">{flour.percent}%</span>
+										<span class="w-14 text-right font-medium text-ink/80 tabular-nums">
+											{flour.weight} g
+										</span>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</li>
+					<li class="flex items-baseline gap-2">
+						<span>Acqua</span>
+						<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
+						<span class="text-lg font-semibold tabular-nums">{results.water} g</span>
+					</li>
+					<li class="flex items-baseline gap-2">
+						<span>Sale</span>
+						<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
+						<span class="text-lg font-semibold tabular-nums">{results.salt} g</span>
+					</li>
+					<li class="flex items-baseline gap-2">
+						<span>Olio</span>
+						<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
+						<span class="text-lg font-semibold tabular-nums">{results.oil} g</span>
+					</li>
+					<li class="flex items-baseline gap-2">
+						<span>{yeast.label}</span>
+						<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
+						<span class="text-lg font-semibold tabular-nums">{yeast.amount} g</span>
+					</li>
+				</ul>
+
+				<div class="mt-3 flex items-baseline gap-2 border-t pt-3">
+					<span class="font-medium">Peso totale impasto</span>
+					<span class="min-w-4 flex-1 border-b border-dotted border-ink/25"></span>
+					<span class="text-xl font-bold tabular-nums">{results.totalWeight} g</span>
+				</div>
 			</div>
-		</div>
 
-		<hr class="my-6" />
+			<hr class="my-6" />
 
-		<div>
-			<label for="notes" class="text-sm">Note</label>
-			<textarea
-				id="notes"
-				rows="4"
-				placeholder="Tecnica di impasto, cottura, come è venuta…"
-				bind:value={values.notes}
-				class="mt-1 w-full resize-y rounded-md"></textarea>
-		</div>
+			<div>
+				<label for="notes" class="text-sm">Note</label>
+				<textarea
+					id="notes"
+					rows="4"
+					placeholder="Tecnica di impasto, cottura, come è venuta…"
+					bind:value={values.notes}
+					class="mt-1 w-full resize-y rounded-md"></textarea>
+			</div>
+		{:else}
+			<PresetSkeleton />
+		{/if}
 	</main>
 </div>

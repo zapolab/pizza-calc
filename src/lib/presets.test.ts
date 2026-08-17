@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { flourTypeName, nextFlourTypeId, type Flour } from './flours';
-import { clampValues, cloneValues, MAX_FLOURS, validateValues } from './presets';
+import {
+	clampValues,
+	cloneValues,
+	MAX_FLOURS,
+	rebalanceFlours,
+	validateValues,
+	withFlourRemoved
+} from './presets';
 import { testFlourTypes, testValues } from './testValues';
 
 function withFlours(flours: Flour[]) {
@@ -93,6 +100,131 @@ describe('validateValues', () => {
 		);
 
 		expect(errors.flours).toBe('Ogni farina può essere scelta una sola volta');
+	});
+});
+
+describe('rebalanceFlours', () => {
+	const three: Flour[] = [
+		{ flourTypeId: 1, percent: 100 },
+		{ flourTypeId: 6, percent: 0 },
+		{ flourTypeId: 7, percent: 0 }
+	];
+
+	it('hands the freed share to the row below', () => {
+		expect(rebalanceFlours(three, 0, 60)).toEqual([
+			{ flourTypeId: 1, percent: 60 },
+			{ flourTypeId: 6, percent: 40 },
+			{ flourTypeId: 7, percent: 0 }
+		]);
+	});
+
+	it('walks down the list on every following edit', () => {
+		const first = rebalanceFlours(three, 0, 60);
+
+		expect(rebalanceFlours(first, 1, 30)).toEqual([
+			{ flourTypeId: 1, percent: 60 },
+			{ flourTypeId: 6, percent: 30 },
+			{ flourTypeId: 7, percent: 10 }
+		]);
+	});
+
+	it('takes from the row above when there is none below', () => {
+		const current: Flour[] = [
+			{ flourTypeId: 1, percent: 60 },
+			{ flourTypeId: 6, percent: 30 },
+			{ flourTypeId: 7, percent: 10 }
+		];
+
+		expect(rebalanceFlours(current, 2, 15)).toEqual([
+			{ flourTypeId: 1, percent: 60 },
+			{ flourTypeId: 6, percent: 25 },
+			{ flourTypeId: 7, percent: 15 }
+		]);
+	});
+
+	it('spills onto the next row once the nearest one is exhausted', () => {
+		const current: Flour[] = [
+			{ flourTypeId: 1, percent: 60 },
+			{ flourTypeId: 6, percent: 30 },
+			{ flourTypeId: 7, percent: 10 }
+		];
+
+		expect(rebalanceFlours(current, 2, 50)).toEqual([
+			{ flourTypeId: 1, percent: 50 },
+			{ flourTypeId: 6, percent: 0 },
+			{ flourTypeId: 7, percent: 50 }
+		]);
+	});
+
+	it('realigns a total that was not 100', () => {
+		const legacy: Flour[] = [
+			{ flourTypeId: 1, percent: 50 },
+			{ flourTypeId: 6, percent: 30 }
+		];
+
+		expect(rebalanceFlours(legacy, 0, 50)).toEqual([
+			{ flourTypeId: 1, percent: 50 },
+			{ flourTypeId: 6, percent: 50 }
+		]);
+	});
+
+	it('clamps the edited share into range', () => {
+		expect(rebalanceFlours(three, 1, 180)).toEqual([
+			{ flourTypeId: 1, percent: 0 },
+			{ flourTypeId: 6, percent: 100 },
+			{ flourTypeId: 7, percent: 0 }
+		]);
+	});
+
+	it('leaves the others alone while the field is empty', () => {
+		const current: Flour[] = [
+			{ flourTypeId: 1, percent: 60 },
+			{ flourTypeId: 6, percent: 40 }
+		];
+		const next = rebalanceFlours(current, 0, Number.NaN);
+
+		expect(next[0].percent).toBeNaN();
+		expect(next[1].percent).toBe(40);
+	});
+
+	it('does not mutate the list it is given', () => {
+		rebalanceFlours(three, 0, 60);
+
+		expect(three[1].percent).toBe(0);
+	});
+
+	it('forces a lone flour to 100%', () => {
+		expect(rebalanceFlours([{ flourTypeId: 1, percent: 100 }], 0, 40)).toEqual([
+			{ flourTypeId: 1, percent: 100 }
+		]);
+	});
+});
+
+describe('withFlourRemoved', () => {
+	const three: Flour[] = [
+		{ flourTypeId: 1, percent: 60 },
+		{ flourTypeId: 6, percent: 30 },
+		{ flourTypeId: 7, percent: 10 }
+	];
+
+	it('hands the freed share to the row below', () => {
+		expect(withFlourRemoved(three, 1)).toEqual([
+			{ flourTypeId: 1, percent: 60 },
+			{ flourTypeId: 7, percent: 40 }
+		]);
+	});
+
+	it('hands it to the row above when the last one goes', () => {
+		expect(withFlourRemoved(three, 2)).toEqual([
+			{ flourTypeId: 1, percent: 60 },
+			{ flourTypeId: 6, percent: 40 }
+		]);
+	});
+
+	it('does not mutate the list it is given', () => {
+		withFlourRemoved(three, 0);
+
+		expect(three).toHaveLength(3);
 	});
 });
 

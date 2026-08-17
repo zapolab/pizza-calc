@@ -76,6 +76,59 @@ export function clampValues(values: PresetValues): PresetValues {
 	};
 }
 
+/** Compensation order: below the edited one first, then above it, nearest first */
+function compensationOrder(length: number, index: number): number[] {
+	const below = Array.from({ length: length - index - 1 }, (_, i) => index + 1 + i);
+	const above = Array.from({ length: index }, (_, i) => index - 1 - i);
+	return [...below, ...above];
+}
+
+/** What the shares are missing to total 100% */
+function missingShare(flours: Flour[]): number {
+	return flours.reduce((left, flour) => left - clamp(flour.percent, limits.flourPercent), 100);
+}
+
+/** Hands a share to the rows in order, filling each one, and returns what did not fit */
+function distribute(flours: Flour[], order: number[], share: number): number {
+	let left = share;
+
+	for (const i of order) {
+		if (left === 0) break;
+		const current = clamp(flours[i].percent, limits.flourPercent);
+		flours[i].percent = clamp(current + left, limits.flourPercent);
+		left -= flours[i].percent - current;
+	}
+
+	return left;
+}
+
+/** Sets one flour's share and spreads the remainder over the others */
+export function rebalanceFlours(flours: Flour[], index: number, percent: number): Flour[] {
+	const next = flours.map((flour) => ({ ...flour }));
+	if (!Number.isFinite(percent)) {
+		next[index].percent = percent;
+		return next;
+	}
+
+	next[index].percent = clamp(percent, limits.flourPercent);
+
+	const left = distribute(next, compensationOrder(next.length, index), missingShare(next));
+	next[index].percent = clamp(next[index].percent + left, limits.flourPercent);
+
+	return next;
+}
+
+/** Removes a flour and gives its share to the others, following compensationOrder */
+export function withFlourRemoved(flours: Flour[], index: number): Flour[] {
+	const next = flours.filter((_, i) => i !== index).map((flour) => ({ ...flour }));
+	if (next.length === 0) return next;
+
+	const order = compensationOrder(flours.length, index).map((i) => (i > index ? i - 1 : i));
+	distribute(next, order, missingShare(next));
+
+	return next;
+}
+
 export type ValidationErrors = Partial<Record<keyof PresetValues, string>> & {
 	flourPercents?: (string | undefined)[];
 };
