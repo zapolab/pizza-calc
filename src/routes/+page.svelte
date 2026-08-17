@@ -15,7 +15,9 @@
 		cloneValues,
 		limits,
 		MAX_FLOURS,
+		rebalanceFlours,
 		validateValues,
+		withFlourRemoved,
 		type Preset,
 		type PresetValues,
 		type YeastKind
@@ -248,8 +250,12 @@
 		values.flours.push({ flourTypeId: nextFlourTypeId(flourTypes, used), percent: 0 });
 	}
 
+	function setFlourPercent(index: number, percent: number) {
+		values.flours = rebalanceFlours(values.flours, index, percent);
+	}
+
 	function removeFlour(index: number) {
-		values.flours.splice(index, 1);
+		values.flours = withFlourRemoved(values.flours, index);
 	}
 
 	function autofocus(node: HTMLInputElement) {
@@ -594,7 +600,8 @@
 											unit="%"
 											min={limits.flourPercent.min}
 											max={limits.flourPercent.max}
-											bind:value={flour.percent}
+											bind:value={() => flour.percent, (percent) => setFlourPercent(i, percent)}
+											disabled={values.flours.length === 1}
 											error={errors.flourPercents?.[i]}
 										/>
 									</div>
