@@ -16,6 +16,8 @@ FROM node:26-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 ENV DATABASE_URL=/data/local.db
+ENV PROTOCOL_HEADER=x-forwarded-proto
+ENV HOST_HEADER=x-forwarded-host
 
 COPY --from=builder /app/build build/
 COPY --from=builder /app/node_modules node_modules/
