@@ -279,15 +279,6 @@
 {/snippet}
 
 <div class="flex min-h-screen">
-	{#if mobileSidebarOpen}
-		<button
-			type="button"
-			class="fixed inset-0 z-30 bg-black/40 sm:hidden"
-			aria-label="Chiudi barra laterale"
-			onclick={() => (mobileSidebarOpen = false)}
-		></button>
-	{/if}
-
 	<aside
 		class="fixed inset-y-0 left-0 z-40 flex w-full shrink-0 flex-col overflow-y-auto border-r bg-surface transition-transform
 			sm:sticky sm:top-0 sm:h-dvh sm:translate-x-0 sm:bg-transparent sm:transition-none
