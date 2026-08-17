@@ -5,6 +5,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { computeResults } from '$lib/dough';
 	import NumberField from '$lib/NumberField.svelte';
+	import PresetEmptyState from '$lib/PresetEmptyState.svelte';
 	import PresetSkeleton from '$lib/PresetSkeleton.svelte';
 	import SegmentedControl from '$lib/SegmentedControl.svelte';
 	import { flourTypeName, nextFlourTypeId } from '$lib/flours';
@@ -39,6 +40,7 @@
 	];
 
 	const presets = $derived(data.presets);
+	const hasPresets = $derived(presets.length > 0);
 	const flourTypes = $derived(data.flourTypes);
 
 	let selectedId = $state<number | null>(untrack(() => data.presets[0]?.id ?? null));
@@ -451,7 +453,7 @@
 				/>
 			{:else}
 				<h2 class="min-w-0 flex-1 truncate text-lg font-semibold">
-					{#if ready}
+					{#if ready || !hasPresets}
 						{selectedPreset?.name ?? 'Nessun preset'}
 					{:else}
 						<span class="inline-block h-4.5 w-40 animate-pulse rounded bg-ink/10"></span>
@@ -521,7 +523,9 @@
 			</div>
 		</dialog>
 
-		{#if ready}
+		{#if !hasPresets}
+			<PresetEmptyState oncreate={createPreset} />
+		{:else if ready}
 			<form>
 				<div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
 					<NumberField
