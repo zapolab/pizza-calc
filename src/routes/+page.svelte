@@ -52,6 +52,7 @@
 	let renaming = $state(false);
 	let renameValue = $state('');
 	let deleteDialog = $state<HTMLDialogElement | null>(null);
+	let deleteTarget = $state<Preset | null>(null);
 
 	const errors = $derived(validateValues(values));
 	const hasErrors = $derived(Object.keys(errors).length > 0);
@@ -209,10 +210,14 @@
 		if (result.type === 'success') await invalidateAll();
 	}
 
-	async function deletePreset() {
-		const id = selectedId;
-		if (id === null) return;
-		cancelSave();
+	function requestDelete(preset: Preset) {
+		deleteTarget = preset;
+		deleteDialog?.showModal();
+	}
+
+	async function deletePreset(id: number) {
+		if (id === selectedId) cancelSave();
+		else flushSave();
 
 		const body = new FormData();
 		body.set('id', String(id));
@@ -222,6 +227,7 @@
 
 		const i = presets.findIndex((preset) => preset.id === id);
 		await invalidateAll();
+		if (id !== selectedId) return;
 
 		const next = presets[i] ?? presets[i - 1] ?? null;
 		loadPreset(next?.id ?? null, next?.values ?? data.defaultValues);
@@ -255,6 +261,23 @@
 	);
 </script>
 
+{#snippet trashIcon(size: string)}
+	<svg
+		class={size}
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2" />
+		<path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+		<path d="M10 11v6M14 11v6" />
+	</svg>
+{/snippet}
+
 <div class="flex min-h-screen">
 	{#if mobileSidebarOpen}
 		<button
@@ -266,7 +289,7 @@
 	{/if}
 
 	<aside
-		class="fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col overflow-y-auto border-r bg-surface transition-transform
+		class="fixed inset-y-0 left-0 z-40 flex w-full shrink-0 flex-col overflow-y-auto border-r bg-surface transition-transform
 			sm:sticky sm:top-0 sm:h-dvh sm:translate-x-0 sm:bg-transparent sm:transition-none
 			{mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
 			{sidebarOpen ? 'sm:w-56' : 'sm:w-12'}"
@@ -278,7 +301,7 @@
 
 			<button
 				type="button"
-				class="rounded p-1 hover:bg-ink/5 sm:hidden"
+				class="rounded p-3 hover:bg-ink/5 sm:hidden"
 				aria-label="Chiudi barra laterale"
 				onclick={() => (mobileSidebarOpen = false)}
 			>
@@ -330,18 +353,29 @@
 			<!-- The only part of the sidebar allowed to shrink. -->
 			<ul class="min-h-0 overflow-y-auto px-2" aria-hidden={ready ? undefined : true}>
 				{#each presets as preset (preset.id)}
-					<li>
+					<li class="flex items-center gap-1">
 						{#if ready}
 							<button
 								type="button"
-								class="w-full truncate rounded px-2 py-1.5 text-left text-sm hover:bg-ink/5
+								class="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-sm hover:bg-ink/5
+									max-sm:py-3 max-sm:text-base
 									{preset.id === selectedId ? 'bg-ink/10 font-medium' : ''}"
 								onclick={() => selectPreset(preset)}
 							>
 								{preset.name}
 							</button>
+
+							<button
+								type="button"
+								class="shrink-0 rounded p-2 text-ink/50 hover:bg-ink/5 hover:text-ink max-sm:p-3"
+								aria-label="Elimina {preset.name}"
+								title="Elimina"
+								onclick={() => requestDelete(preset)}
+							>
+								{@render trashIcon('size-4 max-sm:size-5')}
+							</button>
 						{:else}
-							<div class="flex h-8 items-center px-2">
+							<div class="flex h-8 flex-1 items-center px-2 max-sm:h-12">
 								<div class="h-3.5 w-full animate-pulse rounded bg-ink/10"></div>
 							</div>
 						{/if}
@@ -352,11 +386,12 @@
 			<div class="shrink-0 p-2">
 				<button
 					type="button"
-					class="flex w-full items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-ink/5"
+					class="flex w-full items-center gap-2 rounded border px-2 py-1.5 text-sm hover:bg-ink/5
+						max-sm:py-3 max-sm:text-base"
 					onclick={createPreset}
 				>
 					<svg
-						class="size-4"
+						class="size-4 max-sm:size-5"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
@@ -453,22 +488,9 @@
 				aria-label="Elimina preset"
 				title="Elimina preset"
 				disabled={!selectedPreset}
-				onclick={() => deleteDialog?.showModal()}
+				onclick={() => selectedPreset && requestDelete(selectedPreset)}
 			>
-				<svg
-					class="size-5"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-				>
-					<path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2" />
-					<path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-					<path d="M10 11v6M14 11v6" />
-				</svg>
+				{@render trashIcon('size-5')}
 			</button>
 		</div>
 
@@ -478,7 +500,7 @@
 		>
 			<h3 class="text-lg font-semibold">Eliminare il preset?</h3>
 			<p class="mt-2 text-sm">
-				Il preset <strong>{selectedPreset?.name}</strong> verrà eliminato definitivamente.
+				Il preset <strong>{deleteTarget?.name}</strong> verrà eliminato definitivamente.
 			</p>
 			<div class="mt-4 flex justify-end gap-2">
 				<button
@@ -492,7 +514,7 @@
 					type="button"
 					class="rounded border border-red-600 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50
 						dark:border-red-500 dark:text-red-400 dark:hover:bg-red-950"
-					onclick={deletePreset}
+					onclick={() => deleteTarget && deletePreset(deleteTarget.id)}
 				>
 					Elimina
 				</button>
