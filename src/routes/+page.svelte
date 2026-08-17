@@ -415,7 +415,9 @@
 	</aside>
 
 	<main class="mx-auto w-full max-w-3xl p-4">
-		<div class="mb-4 flex items-center gap-2 border-b pb-2">
+		<div
+			class="sticky top-0 z-20 -mx-4 -mt-4 mb-4 flex items-center gap-2 border-b bg-surface px-4 pt-4 pb-2"
+		>
 			<button
 				type="button"
 				class="rounded p-1.5 hover:bg-ink/5 sm:hidden"
