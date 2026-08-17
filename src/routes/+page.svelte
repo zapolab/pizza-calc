@@ -272,7 +272,11 @@
 			{sidebarOpen ? 'sm:w-56' : 'sm:w-12'}"
 	>
 		<div class="flex shrink-0 items-center justify-between gap-2 p-2">
-			<span class="text-sm font-semibold {sidebarOpen ? '' : 'hidden max-sm:inline'}">Preset</span>
+			<h1
+				class="min-w-0 truncate text-lg font-semibold {sidebarOpen ? '' : 'hidden max-sm:block'}"
+			>
+				Pizza Calculator
+			</h1>
 
 			<button
 				type="button"
@@ -321,6 +325,10 @@
 				? 'flex min-h-0 flex-1 flex-col'
 				: 'hidden min-h-0 flex-1 flex-col max-sm:flex'}
 		>
+			<div class="shrink-0 px-2 pb-1">
+				<span class="text-sm font-semibold">Presets</span>
+			</div>
+
 			<!-- The only part of the sidebar allowed to shrink. -->
 			<ul class="min-h-0 overflow-y-auto px-2">
 				{#each presets as preset (preset.id)}
@@ -462,7 +470,7 @@
 
 		<dialog
 			bind:this={deleteDialog}
-			class="m-auto sm:max-w-sm rounded-lg border bg-surface p-4 text-ink backdrop:bg-black/40"
+			class="m-auto rounded-lg border bg-surface p-4 text-ink backdrop:bg-black/40 sm:max-w-sm"
 		>
 			<h3 class="text-lg font-semibold">Eliminare il preset?</h3>
 			<p class="mt-2 text-sm">
