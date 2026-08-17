@@ -25,6 +25,7 @@
 
 	const SAVE_DELAY = 500;
 	const PRESET_STORAGE_KEY = 'preset';
+	const ADVANCED_STORAGE_KEY = 'advanced';
 
 	const yeastKinds: { id: YeastKind; label: string }[] = [
 		{ id: 'dry', label: 'Secco' },
@@ -69,6 +70,12 @@
 	// An error inside the collapsed section would go unnoticed.
 	$effect(() => {
 		if (hasAdvancedErrors) advancedOpen = true;
+	});
+
+	// Writes only once `onMount` has restored it.
+	$effect(() => {
+		if (!ready) return;
+		localStorage.setItem(ADVANCED_STORAGE_KEY, String(advancedOpen));
 	});
 
 	const selectedPreset = $derived(presets.find((p) => p.id === selectedId) ?? null);
@@ -146,6 +153,8 @@
 		const raw = localStorage.getItem(PRESET_STORAGE_KEY);
 		const stored = raw === null ? undefined : presets.find((preset) => preset.id === Number(raw));
 		if (stored && stored.id !== selectedId) loadPreset(stored.id, stored.values);
+
+		advancedOpen = localStorage.getItem(ADVANCED_STORAGE_KEY) === 'true';
 		ready = true;
 	});
 
@@ -156,25 +165,25 @@
 		mobileSidebarOpen = false;
 	}
 
-	// `invalidateAll` refreshes the list before the new values are loaded: the body
-	// shows the previous preset until then, so it is hidden for the round trip.
 	async function createPreset() {
 		flushSave();
 
 		const fresh = cloneValues(data.defaultValues);
 
-			const body = new FormData();
-			body.set('name', 'Nuovo preset');
-			body.set('values', JSON.stringify(fresh))		const result = await post('create', body);
-		if (result.type !== 'success') return;
-n;
+		const body = new FormData();
+		body.set('name', 'Nuovo preset');
+		body.set('values', JSON.stringify(fresh));
 
-			await invalidateAll();
-			const id = (result.data as { id?: number } | undefined)?.id;
-			if (id !== undefined) loadPreset(id, fresh)		renameValue = 'Nuovo preset';
+		const result = await post('create', body);
+		if (result.type !== 'success') return;
+
+		await invalidateAll();
+		const id = (result.data as { id?: number } | undefined)?.id;
+		if (id !== undefined) loadPreset(id, fresh);
+
+		renameValue = 'Nuovo preset';
 		renaming = true;
 		mobileSidebarOpen = false;
-	}
 	}
 
 	function startRename() {
@@ -204,7 +213,6 @@ n;
 		const id = selectedId;
 		if (id === null) return;
 		cancelSave();
-		ready = false;
 
 		const body = new FormData();
 		body.set('id', String(id));
@@ -214,7 +222,6 @@ n;
 
 		const i = presets.findIndex((preset) => preset.id === id);
 		await invalidateAll();
-;
 
 		const next = presets[i] ?? presets[i - 1] ?? null;
 		loadPreset(next?.id ?? null, next?.values ?? data.defaultValues);
@@ -309,8 +316,6 @@ n;
 			</button>
 		</div>
 
-		<!-- `hidden` and `flex` are both base utilities, so the collapsed branch reaches
-			 display through the `max-sm:` variant, which Tailwind emits later. -->
 		<div
 			class={sidebarOpen
 				? 'flex min-h-0 flex-1 flex-col'
@@ -401,7 +406,6 @@ n;
 					{#if ready}
 						{selectedPreset?.name ?? 'Nessun preset'}
 					{:else}
-						<!-- Inline, so the heading's own line box keeps the row height. -->
 						<span class="inline-block h-4.5 w-40 animate-pulse rounded bg-ink/10"></span>
 					{/if}
 				</h2>
